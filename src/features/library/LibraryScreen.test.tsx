@@ -304,4 +304,38 @@ describe('LibraryScreen', () => {
     render(<LibraryScreen />)
     expect(screen.getByRole('alert')).toHaveTextContent('Import failed')
   })
+
+  it('uploads cover image via card control', async () => {
+    const user = userEvent.setup()
+    const setCover = vi.fn(async () => {})
+    useLibraryStore.setState({
+      games: [sampleGame],
+      loading: false,
+      setCover,
+    })
+
+    render(<LibraryScreen />)
+
+    const file = new File(['png'], 'cover.png', { type: 'image/png' })
+    const input = screen.getByTestId('cover-upload-abc123')
+    await user.upload(input, file)
+
+    expect(setCover).toHaveBeenCalledWith('abc123', file)
+  })
+
+  it('shows CoverPlaceholder monogram when no cover', () => {
+    useLibraryStore.setState({ games: [sampleGame], loading: false })
+    render(<LibraryScreen />)
+    expect(screen.getByTestId('cover-placeholder')).toHaveTextContent('ZI')
+    expect(screen.queryByTestId('game-cover')).not.toBeInTheDocument()
+  })
+
+  it('shows feelies management strip on each card', async () => {
+    useLibraryStore.setState({ games: [sampleGame], loading: false })
+    render(<LibraryScreen />)
+
+    const manage = screen.getByTestId('feelies-manage-abc123')
+    expect(within(manage).getByTestId('feelies-strip')).toBeInTheDocument()
+    expect(within(manage).getByLabelText(/add feelie/i)).toBeInTheDocument()
+  })
 })

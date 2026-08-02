@@ -79,7 +79,7 @@ describe('PlayWorkbench', () => {
     expect(screen.getByLabelText('Inventory')).toBeInTheDocument()
     expect(screen.getByLabelText('Compass')).toBeInTheDocument()
     expect(screen.getByLabelText('Map')).toBeInTheDocument()
-    expect(screen.getByTestId('feelies-placeholder')).toBeInTheDocument()
+    expect(screen.getByTestId('feelies-strip')).toBeInTheDocument()
 
     const north = screen.getByRole('button', { name: 'north' })
     expect(north).toBeEnabled()

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { commandForDir } from '../../domain/directions'
 import type { Direction } from '../../domain/types'
 import { COMMON_VERBS } from '../../domain/verbs'
+import { FeeliesStrip } from '../feelies/FeeliesStrip'
 import { useLibraryStore } from '../library/libraryStore'
 import { MapView } from '../map/MapView'
 import { SaveModal } from '../saves/SaveModal'
@@ -193,17 +194,20 @@ export function PlayWorkbench() {
         />
       </aside>
 
-      <footer className={styles.feelies} data-testid="feelies-placeholder">
-        <div className={styles.feeliesActions}>
-          <button
-            type="button"
-            className={styles.savesBtn}
-            onClick={() => setSavesOpen(true)}
-            data-testid="saves-button"
-          >
-            Saves
-          </button>
-        </div>
+      <footer className={styles.feelies}>
+        <FeeliesStrip
+          gameId={session.gameId}
+          actions={
+            <button
+              type="button"
+              className={styles.savesBtn}
+              onClick={() => setSavesOpen(true)}
+              data-testid="saves-button"
+            >
+              Saves
+            </button>
+          }
+        />
       </footer>
 
       <SaveModal

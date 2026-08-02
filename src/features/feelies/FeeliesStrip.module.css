@@ -1,0 +1,169 @@
+.root {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 0;
+  min-width: 0;
+  border: 2px solid var(--crt-border);
+  border-radius: 6px;
+  background: var(--crt-panel);
+  padding: 0.35rem 0.75rem;
+  box-sizing: border-box;
+  font-family: var(--crt-font);
+  color: var(--crt-fg);
+  position: relative;
+}
+
+.panel {
+  flex-direction: column;
+  align-items: stretch;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0;
+  padding: 0.5rem 0.65rem;
+  background: var(--crt-bg);
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow-x: auto;
+  flex: 1 1 auto;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.chip {
+  appearance: none;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid var(--crt-border);
+  border-radius: 3px;
+  background: var(--crt-bg);
+  color: var(--crt-fg-bright);
+  font-family: inherit;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.chip:hover:not(:disabled),
+.chip:focus-visible {
+  border-color: var(--crt-fg);
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+  outline: none;
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteBtn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--crt-danger);
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.1rem 0.25rem;
+  cursor: pointer;
+}
+
+.deleteBtn:hover:not(:disabled),
+.deleteBtn:focus-visible {
+  border-color: var(--crt-danger);
+  outline: none;
+}
+
+.hint {
+  font-size: 0.7rem;
+  color: var(--crt-fg-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.addLabel {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--crt-border);
+  border-radius: 3px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--crt-fg-bright);
+  cursor: pointer;
+  background: transparent;
+}
+
+.addLabel:hover,
+.addLabel:focus-within {
+  border-color: var(--crt-fg);
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.error {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--crt-danger);
+  background: rgba(20, 0, 0, 0.9);
+  color: var(--crt-danger);
+  font-size: 0.7rem;
+  z-index: 2;
+}
+
+.panel .error {
+  position: static;
+  margin: 0.35rem 0 0;
+}

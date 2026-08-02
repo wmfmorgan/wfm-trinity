@@ -1,10 +1,71 @@
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
 import type { LibraryGame } from '../../domain/types'
+import { getCover } from '../../persistence/libraryRepo'
 import { getLatestAutosave } from '../../persistence/saveRepo'
+import { FeeliesStrip } from '../feelies/FeeliesStrip'
 import { usePlayStore } from '../play/playStore'
 import { CoverPlaceholder } from './CoverPlaceholder'
 import { useLibraryStore } from './libraryStore'
 import styles from './LibraryScreen.module.css'
+
+const COVER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif'
+
+function GameCover({
+  gameId,
+  title,
+  hasCover,
+  className,
+}: {
+  gameId: string
+  title: string
+  hasCover: boolean
+  className?: string
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!hasCover) {
+      setUrl(null)
+      return
+    }
+
+    let cancelled = false
+    let objectUrl: string | null = null
+
+    void (async () => {
+      try {
+        const blob = await getCover(gameId)
+        if (cancelled || !blob) return
+        objectUrl = URL.createObjectURL(blob)
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl)
+          return
+        }
+        setUrl(objectUrl)
+      } catch {
+        if (!cancelled) setUrl(null)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [gameId, hasCover])
+
+  if (url) {
+    return (
+      <img
+        className={className}
+        src={url}
+        alt={`${title} cover`}
+        data-testid="game-cover"
+      />
+    )
+  }
+
+  return <CoverPlaceholder title={title} className={className} />
+}
 
 const STORY_ACCEPT =
   '.z3,.z4,.z5,.z6,.z7,.z8,.zblorb,.blorb,application/octet-stream'
@@ -26,6 +87,7 @@ export function LibraryScreen() {
   const importFiles = useLibraryStore((s) => s.importFiles)
   const removeGame = useLibraryStore((s) => s.removeGame)
   const updateMeta = useLibraryStore((s) => s.updateMeta)
+  const setCover = useLibraryStore((s) => s.setCover)
   const clearLibraryError = useLibraryStore((s) => s.clearError)
 
   const openGame = usePlayStore((s) => s.openGame)
@@ -133,6 +195,16 @@ export function LibraryScreen() {
     await removeGame(id)
   }
 
+  async function handleCoverChange(
+    gameId: string,
+    e: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    await setCover(gameId, file)
+  }
+
   function dismissError() {
     clearLibraryError()
     clearPlayError()
@@ -198,8 +270,10 @@ export function LibraryScreen() {
 
               return (
                 <li key={game.gameId} className={styles.card}>
-                  <CoverPlaceholder
+                  <GameCover
+                    gameId={game.gameId}
                     title={game.metadata.title}
+                    hasCover={game.hasCover}
                     className={styles.cover}
                   />
                   <div className={styles.cardBody}>
@@ -275,6 +349,20 @@ export function LibraryScreen() {
                         >
                           New Game
                         </button>
+                        <label className={styles.coverUploadLabel}>
+                          Cover
+                          <input
+                            className={styles.fileInput}
+                            type="file"
+                            accept={COVER_ACCEPT}
+                            disabled={busy || loading}
+                            onChange={(e) =>
+                              void handleCoverChange(game.gameId, e)
+                            }
+                            aria-label={`Upload cover for ${game.metadata.title}`}
+                            data-testid={`cover-upload-${game.gameId}`}
+                          />
+                        </label>
                         <button
                           type="button"
                           className={styles.btn}
@@ -293,6 +381,17 @@ export function LibraryScreen() {
                         </button>
                       </div>
                     ) : null}
+
+                    <div
+                      className={styles.feeliesManage}
+                      data-testid={`feelies-manage-${game.gameId}`}
+                    >
+                      <FeeliesStrip
+                        gameId={game.gameId}
+                        allowDelete
+                        variant="panel"
+                      />
+                    </div>
                   </div>
                 </li>
               )

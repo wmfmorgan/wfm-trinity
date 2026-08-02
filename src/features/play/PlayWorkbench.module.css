@@ -123,20 +123,15 @@
 .feelies {
   grid-area: feelies;
   min-height: 0;
-  border: 2px dashed var(--crt-border);
-  border-radius: 6px;
-  background: var(--crt-panel);
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 0.75rem;
+  align-items: stretch;
   box-sizing: border-box;
 }
 
-.feeliesActions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.feelies > * {
+  flex: 1;
+  min-width: 0;
 }
 
 .savesBtn {
