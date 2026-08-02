@@ -295,16 +295,6 @@ describe('LibraryScreen', () => {
     })
   })
 
-  it('shows library or play error banner', () => {
-    useLibraryStore.setState({
-      games: [],
-      loading: false,
-      error: 'Import failed',
-    })
-    render(<LibraryScreen />)
-    expect(screen.getByRole('alert')).toHaveTextContent('Import failed')
-  })
-
   it('uploads cover image via card control', async () => {
     const user = userEvent.setup()
     const setCover = vi.fn(async () => {})

@@ -82,17 +82,13 @@ function formatWhen(ts: number | undefined): string | null {
 export function LibraryScreen() {
   const games = useLibraryStore((s) => s.games)
   const loading = useLibraryStore((s) => s.loading)
-  const libraryError = useLibraryStore((s) => s.error)
   const refresh = useLibraryStore((s) => s.refresh)
   const importFiles = useLibraryStore((s) => s.importFiles)
   const removeGame = useLibraryStore((s) => s.removeGame)
   const updateMeta = useLibraryStore((s) => s.updateMeta)
   const setCover = useLibraryStore((s) => s.setCover)
-  const clearLibraryError = useLibraryStore((s) => s.clearError)
 
   const openGame = usePlayStore((s) => s.openGame)
-  const playError = usePlayStore((s) => s.error)
-  const clearPlayError = usePlayStore((s) => s.clearError)
 
   const [pendingDelete, setPendingDelete] = useState<LibraryGame | null>(null)
   const [pendingNewGame, setPendingNewGame] = useState<LibraryGame | null>(null)
@@ -134,8 +130,6 @@ export function LibraryScreen() {
       cancelled = true
     }
   }, [games])
-
-  const error = libraryError ?? playError
 
   async function handleImportChange(e: ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -205,11 +199,6 @@ export function LibraryScreen() {
     await setCover(gameId, file)
   }
 
-  function dismissError() {
-    clearLibraryError()
-    clearPlayError()
-  }
-
   return (
     <div className={styles.screen} data-testid="library-screen">
       <header className={styles.header}>
@@ -232,19 +221,6 @@ export function LibraryScreen() {
       </header>
 
       <main className={styles.main} aria-labelledby={titleId}>
-        {error ? (
-          <div className={styles.banner} role="alert">
-            {error}
-            <button
-              type="button"
-              className={styles.bannerDismiss}
-              onClick={dismissError}
-            >
-              Dismiss
-            </button>
-          </div>
-        ) : null}
-
         {loading ? (
           <p className={styles.loading} aria-live="polite">
             Loading…

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import App from './App'
 import { useLibraryStore } from './features/library/libraryStore'
 import { usePlayStore } from './features/play/playStore'
@@ -81,5 +82,39 @@ describe('App', () => {
     render(<App />)
     expect(screen.getByTestId('play-workbench')).toBeInTheDocument()
     expect(screen.queryByTestId('play-placeholder')).not.toBeInTheDocument()
+  })
+
+  it('surfaces libraryStore.error in ErrorBanner with dismiss', async () => {
+    const user = userEvent.setup()
+    const clearError = vi.fn()
+    useLibraryStore.setState({
+      error: 'Import failed: empty file',
+      clearError,
+    })
+    render(<App />)
+    expect(screen.getByTestId('error-banner')).toHaveTextContent(
+      'Import failed: empty file',
+    )
+    await user.click(screen.getByRole('button', { name: /dismiss/i }))
+    expect(clearError).toHaveBeenCalled()
+  })
+
+  it('surfaces playStore.error with Return to library on play screen', async () => {
+    const user = userEvent.setup()
+    const returnToLibrary = vi.fn()
+    usePlayStore.setState({
+      screen: 'play',
+      session: null,
+      error: 'Interpreter error: boom',
+      returnToLibrary,
+    })
+    render(<App />)
+    expect(screen.getByTestId('error-banner')).toHaveTextContent(
+      'Interpreter error: boom',
+    )
+    await user.click(
+      screen.getByRole('button', { name: /return to library/i }),
+    )
+    expect(returnToLibrary).toHaveBeenCalled()
   })
 })

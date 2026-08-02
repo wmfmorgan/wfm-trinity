@@ -134,8 +134,11 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         error: null,
       })
     } catch (err) {
-      const message =
+      const raw =
         err instanceof Error ? err.message : 'Failed to open game'
+      const message = raw.startsWith('Failed to open')
+        ? raw
+        : `Failed to open game: ${raw}`
       set({ error: message, screen: 'library', session: null, adapter: null })
     }
   },
@@ -160,8 +163,12 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         set({ error: `Autosave failed: ${message}` })
       }
     } catch (err) {
-      const message =
+      const raw =
         err instanceof Error ? err.message : 'Command failed'
+      const message = raw.startsWith('Interpreter error')
+        ? raw
+        : `Interpreter error: ${raw}`
+      // Keep session so the user can dismiss or return to library from the banner.
       set({ error: message })
     }
   },

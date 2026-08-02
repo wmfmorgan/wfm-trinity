@@ -67,6 +67,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     try {
       for (const file of list) {
         const bytes = await readFileBytes(file)
+        if (bytes.byteLength === 0) {
+          throw new Error(
+            `Empty or unreadable story file: ${file.name || 'unknown'}`,
+          )
+        }
         const gameId = await hashStoryBytes(bytes)
         const now = Date.now()
         const game: LibraryGame = {

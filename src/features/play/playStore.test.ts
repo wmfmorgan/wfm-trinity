@@ -158,6 +158,24 @@ describe('playStore', () => {
     expect(state.error).toMatch(/quota exceeded/i)
   })
 
+  it('submit catches interpreter throw and sets clear error without crashing', async () => {
+    const gameId = await seedGame('interp-throw')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    const adapter = usePlayStore.getState().adapter!
+    vi.spyOn(adapter, 'submit').mockRejectedValueOnce(
+      new Error('engine panicked'),
+    )
+
+    await usePlayStore.getState().submit('north')
+
+    const state = usePlayStore.getState()
+    expect(state.screen).toBe('play')
+    expect(state.session).not.toBeNull()
+    expect(state.error).toMatch(/interpreter error/i)
+    expect(state.error).toMatch(/engine panicked/i)
+  })
+
   it('selectMapRoom updates selectedRoomId', async () => {
     const gameId = await seedGame('select-room')
     await usePlayStore.getState().openGame(gameId, 'new')

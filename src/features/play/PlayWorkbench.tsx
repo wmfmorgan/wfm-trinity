@@ -25,7 +25,6 @@ function focusCommandInput() {
 
 export function PlayWorkbench() {
   const session = usePlayStore((s) => s.session)
-  const error = usePlayStore((s) => s.error)
   const pendingInsert = usePlayStore((s) => s.pendingInsert)
   const pendingInsertId = usePlayStore((s) => s.pendingInsertId)
   const submit = usePlayStore((s) => s.submit)
@@ -33,7 +32,6 @@ export function PlayWorkbench() {
   const queueInsert = usePlayStore((s) => s.queueInsert)
   const clearPendingInsert = usePlayStore((s) => s.clearPendingInsert)
   const returnToLibrary = usePlayStore((s) => s.returnToLibrary)
-  const clearError = usePlayStore((s) => s.clearError)
   const openGame = usePlayStore((s) => s.openGame)
   const saveToSlot = usePlayStore((s) => s.saveToSlot)
   const flushAutosave = usePlayStore((s) => s.flushAutosave)
@@ -345,15 +343,6 @@ export function PlayWorkbench() {
         onSaveNew={onSaveNew}
         onOverwrite={onOverwrite}
       />
-
-      {error != null && error !== '' && (
-        <div className={styles.errorBanner} role="alert">
-          <span>{error}</span>
-          <button type="button" className={styles.linkBtn} onClick={clearError}>
-            Dismiss
-          </button>
-        </div>
-      )}
     </div>
   )
 }

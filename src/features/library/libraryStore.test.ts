@@ -86,6 +86,17 @@ describe('libraryStore', () => {
     expect(titles).toEqual(['a', 'b'])
   })
 
+  it('importFiles empty file sets clear error and does not crash', async () => {
+    const empty = makeFile('corrupt.z5', '')
+    await useLibraryStore.getState().importFiles([empty])
+
+    const { games, loading, error } = useLibraryStore.getState()
+    expect(games).toHaveLength(0)
+    expect(loading).toBe(false)
+    expect(error).toMatch(/empty or unreadable/i)
+    expect(error).toMatch(/corrupt\.z5/)
+  })
+
   it('removeGame deletes cascade and refreshes', async () => {
     await useLibraryStore.getState().importFiles([makeFile('gone.z5', 'bye')])
     const gameId = useLibraryStore.getState().games[0].gameId
