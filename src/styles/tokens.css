@@ -1,0 +1,22 @@
+:root {
+  --crt-bg: #0a0f0a;
+  --crt-fg: #33ff66;
+  --crt-fg-dim: #1a993d;
+  --crt-fg-bright: #9affb0;
+  --crt-amber: #ffb000;
+  --crt-panel: #0d140d;
+  --crt-border: #1a4d28;
+  --crt-danger: #ff4466;
+  --crt-font: "IBM Plex Mono", "ui-monospace", "Cascadia Code", monospace;
+  --crt-scanline-opacity: 0.08;
+  --rail-width: 220px;
+  --map-min-width: 280px;
+  --status-height: 40px;
+  --feelies-height: 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --crt-scanline-opacity: 0;
+  }
+}
