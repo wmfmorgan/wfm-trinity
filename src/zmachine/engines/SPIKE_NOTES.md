@@ -66,7 +66,27 @@
 curl -fsSL -o /tmp/minizork.z3 \
   https://www.ifarchive.org/if-archive/infocom/demos/minizork.z3
 STORY_FILE=/tmp/minizork.z3 npm test -- src/zmachine/engines/zvmAdapter.test.ts
+# Or full suite (all zvm real-story cases + UI tests):
+STORY_FILE=/tmp/minizork.z3 npm test -- --run
 ```
+
+## Task 20 acceptance — remaining user checks
+
+Full checklist with PASS / NEEDS_USER marks: **`docs/superpowers/MANUAL_TEST.md`**.
+
+Automated path (2026-08-02): full Vitest suite green; Mini-Zork load/look/save-restore green with `STORY_FILE`. No P0 bugs found.
+
+**What only a human with owned story files can finish:**
+
+1. `npm run dev` → import **your** Infocom/Trinity (or Mini-Zork) via the library picker.
+2. New game → CRT transcript; compass/typed moves → map growth; pan/zoom by mouse.
+3. Take object → inventory click insert / double-click examine.
+4. Hard-reload → **Continue** restores play + map; manual **Saves** slot load.
+5. Cover upload + feelie attach/view on a real card.
+6. Second different game → isolated saves/map.
+7. Narrow viewport (~≤720px) Play|Map|Inv|More tabs.
+
+Do **not** commit `.z3`–`.z8` / `.zblorb` / `.blorb` story files.
 
 ## Phosphor
 
