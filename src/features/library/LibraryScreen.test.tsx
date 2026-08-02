@@ -35,10 +35,14 @@ function resetStores() {
     session: null,
     adapter: null,
     error: null,
+    pendingInsert: null,
+    pendingInsertId: 0,
     openGame: vi.fn(async () => {}),
     submit: vi.fn(async () => {}),
     returnToLibrary: vi.fn(),
     selectMapRoom: vi.fn(),
+    queueInsert: vi.fn(),
+    clearPendingInsert: vi.fn(),
     clearError: vi.fn(),
   })
 }
@@ -79,10 +83,14 @@ describe('LibraryScreen', () => {
       session: originalPlay.session,
       adapter: originalPlay.adapter,
       error: originalPlay.error,
+      pendingInsert: originalPlay.pendingInsert,
+      pendingInsertId: originalPlay.pendingInsertId,
       openGame: originalPlay.openGame,
       submit: originalPlay.submit,
       returnToLibrary: originalPlay.returnToLibrary,
       selectMapRoom: originalPlay.selectMapRoom,
+      queueInsert: originalPlay.queueInsert,
+      clearPendingInsert: originalPlay.clearPendingInsert,
       clearError: originalPlay.clearError,
     })
   })

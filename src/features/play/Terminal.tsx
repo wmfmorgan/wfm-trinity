@@ -22,7 +22,28 @@ export interface TerminalProps {
   disabled?: boolean
   onSubmit: (line: string) => void
   candidates: string[]
+  /** When set (with a new insertId), appends to draft then notifies onInsertApplied. */
+  insertText?: string | null
+  /** Monotonic id from playStore so Strict Mode remount does not double-insert. */
+  insertId?: number
+  onInsertApplied?: () => void
 }
+
+/** Append object/word to the command draft, spacing as needed. */
+export function applyInsertText(draft: string, text: string): string {
+  const t = text.trim()
+  if (!t) return draft
+  if (!draft) return t
+  if (draft.endsWith(' ')) return draft + t
+  return `${draft} ${t}`
+}
+
+/**
+ * Module-level insert bookkeeping survives Strict Mode remount so we can
+ * re-seed draft after remount without double-appending on the same mount.
+ */
+let lastConsumedInsertId = 0
+let lastInsertResultDraft: string | null = null
 
 interface AcCycle {
   linePrefix: string
@@ -40,20 +61,62 @@ export function Terminal({
   disabled = false,
   onSubmit,
   candidates,
+  insertText = null,
+  insertId = 0,
+  onInsertApplied,
 }: TerminalProps) {
-  const [assist, setAssist] = useState<CommandAssistState>(emptyAssist)
+  const [assist, setAssist] = useState<CommandAssistState>(() => {
+    // Remount after insert: seed draft from last applied result.
+    if (
+      insertText &&
+      insertId > 0 &&
+      insertId === lastConsumedInsertId &&
+      lastInsertResultDraft != null
+    ) {
+      return { ...emptyAssist(), draft: lastInsertResultDraft }
+    }
+    return emptyAssist()
+  })
   const [acMatches, setAcMatches] = useState<string[]>([])
   const [acActiveIndex, setAcActiveIndex] = useState(0)
 
   const scrollRef = useRef<HTMLPreElement>(null)
   const userScrolledUp = useRef(false)
   const acCycleRef = useRef<AcCycle | null>(null)
+  const onInsertAppliedRef = useRef(onInsertApplied)
+  onInsertAppliedRef.current = onInsertApplied
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el || userScrolledUp.current) return
     el.scrollTop = el.scrollHeight
   }, [transcript])
+
+  // Consume external insert (inventory click → draft)
+  useEffect(() => {
+    if (insertText == null || insertText === '' || insertId <= 0) return
+    if (insertId === lastConsumedInsertId) {
+      // Already applied (Strict Mode remount) — restore draft + clear parent.
+      const restored = lastInsertResultDraft
+      if (restored != null) {
+        setAssist((s) =>
+          s.draft === restored ? s : { ...s, draft: restored },
+        )
+      }
+      onInsertAppliedRef.current?.()
+      return
+    }
+    lastConsumedInsertId = insertId
+    setAssist((s) => {
+      const draft = applyInsertText(s.draft, insertText)
+      lastInsertResultDraft = draft
+      return { ...s, draft }
+    })
+    acCycleRef.current = null
+    setAcMatches([])
+    setAcActiveIndex(0)
+    onInsertAppliedRef.current?.()
+  }, [insertText, insertId])
 
   const handleScroll = useCallback((e: UIEvent<HTMLPreElement>) => {
     const el = e.currentTarget

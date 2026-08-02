@@ -23,6 +23,8 @@ function resetStore() {
     session: null,
     adapter: null,
     error: null,
+    pendingInsert: null,
+    pendingInsertId: 0,
   })
 }
 

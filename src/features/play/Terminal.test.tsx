@@ -130,4 +130,23 @@ describe('Terminal', () => {
     await user.type(input, 'look{enter}')
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  it('applies insertText into the draft and calls onInsertApplied', async () => {
+    const onInsertApplied = vi.fn()
+    const { rerender, input } = setup()
+
+    rerender(
+      <Terminal
+        transcript="You are in a meadow."
+        onSubmit={vi.fn()}
+        candidates={['look', 'lamp']}
+        insertText="brass lamp"
+        insertId={1}
+        onInsertApplied={onInsertApplied}
+      />,
+    )
+
+    expect(input).toHaveValue('brass lamp')
+    expect(onInsertApplied).toHaveBeenCalled()
+  })
 })

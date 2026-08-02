@@ -22,10 +22,19 @@ export interface PlayState {
   session: SessionState | null
   adapter: ZMachineAdapter | null
   error: string | null
+  /**
+   * One-shot insert for Terminal (inventory click).
+   * Terminal applies via insertText prop and clears with clearPendingInsert.
+   */
+  pendingInsert: string | null
+  /** Monotonic id paired with pendingInsert for Terminal consumption. */
+  pendingInsertId: number
   openGame: (gameId: string, mode: OpenGameMode) => Promise<void>
   submit: (line: string) => Promise<void>
   returnToLibrary: () => void
   selectMapRoom: (roomId: string | null) => void
+  queueInsert: (text: string) => void
+  clearPendingInsert: () => void
   clearError: () => void
 }
 
@@ -48,8 +57,21 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   session: null,
   adapter: null,
   error: null,
+  pendingInsert: null,
+  pendingInsertId: 0,
 
   clearError: () => set({ error: null }),
+
+  queueInsert: (text) => {
+    const t = text.trim()
+    if (!t) return
+    set((s) => ({
+      pendingInsert: t,
+      pendingInsertId: s.pendingInsertId + 1,
+    }))
+  },
+
+  clearPendingInsert: () => set({ pendingInsert: null }),
 
   returnToLibrary: () =>
     set({
@@ -57,6 +79,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       session: null,
       adapter: null,
       error: null,
+      pendingInsert: null,
     }),
 
   selectMapRoom: (roomId) => {
