@@ -188,4 +188,31 @@ describe('playStore', () => {
     expect(state.screen).toBe('library')
     expect(state.error).toMatch(/not found/i)
   })
+
+  it('saveToSlot writes manual named slot', async () => {
+    const gameId = await seedGame('manual-save')
+    await usePlayStore.getState().openGame(gameId, 'new')
+    await usePlayStore.getState().submit('north')
+
+    await usePlayStore.getState().saveToSlot('slot-1', 'Checkpoint')
+
+    const record = await getSave(gameId, 'slot-1')
+    expect(record).toBeDefined()
+    expect(record!.name).toBe('Checkpoint')
+    expect(record!.locationName).toBe('Woods')
+  })
+
+  it('flushAutosave writes autosave without throwing when no session', async () => {
+    await expect(
+      usePlayStore.getState().flushAutosave(),
+    ).resolves.toBeUndefined()
+
+    const gameId = await seedGame('flush-auto')
+    await usePlayStore.getState().openGame(gameId, 'new')
+    await usePlayStore.getState().submit('look')
+
+    await usePlayStore.getState().flushAutosave()
+    const record = await getSave(gameId, 'autosave')
+    expect(record).toBeDefined()
+  })
 })

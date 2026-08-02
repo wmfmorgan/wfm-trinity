@@ -1,11 +1,32 @@
+import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { deleteDB } from 'idb'
 import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LibraryGame } from '../../domain/types'
+import { DB_NAME, closeDb } from '../../persistence/db'
+import { putSave } from '../../persistence/saveRepo'
 import { LibraryScreen } from './LibraryScreen'
 import { monogramFromTitle } from './CoverPlaceholder'
 import { useLibraryStore } from './libraryStore'
 import { usePlayStore } from '../play/playStore'
+
+async function resetDb() {
+  await closeDb()
+  await deleteDB(DB_NAME)
+}
+
+async function seedAutosave(gameId: string) {
+  await putSave({
+    gameId,
+    slotId: 'autosave',
+    name: 'Autosave',
+    updatedAt: Date.now(),
+    locationName: 'Meadow',
+    zmachineSave: new ArrayBuffer(8),
+    shell: { map: { gameId, nodes: {}, edges: [] }, history: [] },
+  })
+}
 
 const sampleGame: LibraryGame = {
   gameId: 'abc123',
@@ -39,6 +60,8 @@ function resetStores() {
     pendingInsertId: 0,
     openGame: vi.fn(async () => {}),
     submit: vi.fn(async () => {}),
+    saveToSlot: vi.fn(async () => {}),
+    flushAutosave: vi.fn(async () => {}),
     returnToLibrary: vi.fn(),
     selectMapRoom: vi.fn(),
     queueInsert: vi.fn(),
@@ -62,7 +85,8 @@ describe('monogramFromTitle', () => {
 })
 
 describe('LibraryScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await resetDb()
     resetStores()
   })
 
@@ -87,6 +111,8 @@ describe('LibraryScreen', () => {
       pendingInsertId: originalPlay.pendingInsertId,
       openGame: originalPlay.openGame,
       submit: originalPlay.submit,
+      saveToSlot: originalPlay.saveToSlot,
+      flushAutosave: originalPlay.flushAutosave,
       returnToLibrary: originalPlay.returnToLibrary,
       selectMapRoom: originalPlay.selectMapRoom,
       queueInsert: originalPlay.queueInsert,
@@ -129,18 +155,56 @@ describe('LibraryScreen', () => {
     expect(Array.from(arg)[0]?.name).toBe('advent.z5')
   })
 
-  it('renders game cards with Continue and New', () => {
+  it('renders game card with New Game only when no autosave', async () => {
     useLibraryStore.setState({ games: [sampleGame], loading: false })
     render(<LibraryScreen />)
 
     expect(screen.getByText('Zork I')).toBeInTheDocument()
     expect(screen.getByText('zork1.z5')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^new$/i })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /^continue$/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^new game$/i }),
+    ).toBeInTheDocument()
     expect(screen.getByTestId('cover-placeholder')).toHaveTextContent('ZI')
   })
 
-  it('Continue and New call openGame with mode', async () => {
+  it('shows Continue when autosave exists', async () => {
+    await seedAutosave('abc123')
+    useLibraryStore.setState({ games: [sampleGame], loading: false })
+    render(<LibraryScreen />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /^continue$/i }),
+      ).toBeInTheDocument()
+    })
+    expect(
+      screen.getByRole('button', { name: /^new game$/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('Continue calls openGame with continue mode', async () => {
+    const user = userEvent.setup()
+    const openGame = vi.fn(async () => {})
+    await seedAutosave('abc123')
+    useLibraryStore.setState({ games: [sampleGame], loading: false })
+    usePlayStore.setState({ openGame })
+
+    render(<LibraryScreen />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /^continue$/i }),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^continue$/i }))
+    expect(openGame).toHaveBeenCalledWith('abc123', 'continue')
+  })
+
+  it('New Game without autosave opens immediately', async () => {
     const user = userEvent.setup()
     const openGame = vi.fn(async () => {})
     useLibraryStore.setState({ games: [sampleGame], loading: false })
@@ -148,10 +212,35 @@ describe('LibraryScreen', () => {
 
     render(<LibraryScreen />)
 
-    await user.click(screen.getByRole('button', { name: /^continue$/i }))
-    expect(openGame).toHaveBeenCalledWith('abc123', 'continue')
+    await user.click(screen.getByRole('button', { name: /^new game$/i }))
+    expect(openGame).toHaveBeenCalledWith('abc123', 'new')
+    expect(screen.queryByTestId('new-game-confirm')).not.toBeInTheDocument()
+  })
 
-    await user.click(screen.getByRole('button', { name: /^new$/i }))
+  it('New Game with autosave requires confirmation', async () => {
+    const user = userEvent.setup()
+    const openGame = vi.fn(async () => {})
+    await seedAutosave('abc123')
+    useLibraryStore.setState({ games: [sampleGame], loading: false })
+    usePlayStore.setState({ openGame })
+
+    render(<LibraryScreen />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /^continue$/i }),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^new game$/i }))
+    expect(openGame).not.toHaveBeenCalled()
+
+    const dialog = screen.getByTestId('new-game-confirm')
+    expect(within(dialog).getByText(/start new game/i)).toBeInTheDocument()
+
+    await user.click(
+      within(dialog).getByRole('button', { name: /^new game$/i }),
+    )
     expect(openGame).toHaveBeenCalledWith('abc123', 'new')
   })
 

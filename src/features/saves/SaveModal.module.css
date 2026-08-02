@@ -1,0 +1,246 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1rem;
+}
+
+.dialog {
+  width: min(480px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid var(--crt-border);
+  background: var(--crt-panel);
+  color: var(--crt-fg);
+  padding: 1rem 1.25rem 1.25rem;
+  box-shadow: 0 0 28px rgba(51, 255, 102, 0.18);
+  font-family: var(--crt-font);
+  position: relative;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--crt-fg-bright);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(51, 255, 102, 0.3);
+}
+
+.error {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--crt-danger);
+  color: var(--crt-danger);
+  background: rgba(255, 68, 102, 0.08);
+  font-size: 0.8rem;
+}
+
+.hint,
+.empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--crt-fg-dim);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 40vh;
+}
+
+.slot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--crt-border);
+  background: var(--crt-bg);
+}
+
+.slotMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.slotName {
+  font-size: 0.9rem;
+  color: var(--crt-fg-bright);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  word-break: break-word;
+}
+
+.badge {
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--crt-amber);
+  border: 1px solid var(--crt-amber);
+  padding: 0.05rem 0.35rem;
+}
+
+.slotDetail {
+  font-size: 0.7rem;
+  color: var(--crt-fg-dim);
+}
+
+.slotActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.saveNew {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid var(--crt-border);
+  padding-top: 0.75rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--crt-fg-dim);
+}
+
+.saveNewRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--crt-bg);
+  border: 1px solid var(--crt-border);
+  color: var(--crt-fg);
+  font-family: inherit;
+  font-size: 0.875rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--crt-fg);
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+}
+
+.input:disabled {
+  opacity: 0.5;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--crt-border);
+  background: transparent;
+  color: var(--crt-fg);
+  font-family: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.btn:hover:not(:disabled),
+.btn:focus-visible {
+  border-color: var(--crt-fg);
+  color: var(--crt-fg-bright);
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+  outline: none;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btnPrimary {
+  border-color: var(--crt-fg-dim);
+  color: var(--crt-fg-bright);
+}
+
+.btnDanger {
+  border-color: var(--crt-danger);
+  color: var(--crt-danger);
+}
+
+.btnDanger:hover:not(:disabled),
+.btnDanger:focus-visible {
+  border-color: var(--crt-danger);
+  color: #ff88a0;
+  box-shadow: 0 0 8px rgba(255, 68, 102, 0.25);
+}
+
+.confirm {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  z-index: 2;
+}
+
+.confirmBody {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--crt-fg);
+  text-align: center;
+  max-width: 22rem;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title {
+    text-shadow: none;
+  }
+
+  .btn {
+    transition: none;
+  }
+}

@@ -148,4 +148,30 @@ describe('PlayWorkbench', () => {
     expect(screen.getByTestId('play-workbench')).toBeInTheDocument()
     expect(screen.queryByTestId('play-placeholder')).not.toBeInTheDocument()
   })
+
+  it('Saves button opens SaveModal', async () => {
+    const user = userEvent.setup()
+    const gameId = await seedGame('saves-btn')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    render(<PlayWorkbench />)
+
+    expect(screen.queryByTestId('save-modal')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('saves-button'))
+    expect(screen.getByTestId('save-modal')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^saves$/i })).toBeInTheDocument()
+  })
+
+  it('pagehide triggers best-effort flushAutosave', async () => {
+    const gameId = await seedGame('pagehide-auto')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    const flushSpy = vi.fn(async () => {})
+    usePlayStore.setState({ flushAutosave: flushSpy })
+
+    render(<PlayWorkbench />)
+
+    window.dispatchEvent(new Event('pagehide'))
+    expect(flushSpy).toHaveBeenCalled()
+  })
 })

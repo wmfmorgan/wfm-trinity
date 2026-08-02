@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { commandForDir } from '../../domain/directions'
 import type { Direction } from '../../domain/types'
 import { COMMON_VERBS } from '../../domain/verbs'
 import { useLibraryStore } from '../library/libraryStore'
 import { MapView } from '../map/MapView'
+import { SaveModal } from '../saves/SaveModal'
 import { Compass } from './Compass'
 import { InventoryPanel } from './InventoryPanel'
 import { usePlayStore } from './playStore'
@@ -29,8 +30,12 @@ export function PlayWorkbench() {
   const clearPendingInsert = usePlayStore((s) => s.clearPendingInsert)
   const returnToLibrary = usePlayStore((s) => s.returnToLibrary)
   const clearError = usePlayStore((s) => s.clearError)
+  const openGame = usePlayStore((s) => s.openGame)
+  const saveToSlot = usePlayStore((s) => s.saveToSlot)
+  const flushAutosave = usePlayStore((s) => s.flushAutosave)
 
   const games = useLibraryStore((s) => s.games)
+  const [savesOpen, setSavesOpen] = useState(false)
 
   const title = useMemo(() => {
     if (!session) return 'Adventure'
@@ -44,6 +49,27 @@ export function PlayWorkbench() {
     const exits = session.snapshot.exits.map((e) => commandForDir(e.dir))
     return [...COMMON_VERBS, ...inv, ...exits]
   }, [session])
+
+  // Best-effort autosave on page hide / tab background
+  useEffect(() => {
+    if (!session) return
+
+    const onPageHide = () => {
+      void flushAutosave()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        void flushAutosave()
+      }
+    }
+
+    window.addEventListener('pagehide', onPageHide)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [session, flushAutosave])
 
   const onSubmit = useCallback(
     (line: string) => {
@@ -74,6 +100,31 @@ export function PlayWorkbench() {
       focusCommandInput()
     },
     [submit],
+  )
+
+  const onLoadSlot = useCallback(
+    async (slotId: string) => {
+      if (!session) return
+      await openGame(session.gameId, { slotId })
+      const err = usePlayStore.getState().error
+      // openGame soft-fails into store.error; surface to SaveModal
+      if (err) throw new Error(err)
+    },
+    [session, openGame],
+  )
+
+  const onSaveNew = useCallback(
+    async (slotId: string, name: string) => {
+      await saveToSlot(slotId, name)
+    },
+    [saveToSlot],
+  )
+
+  const onOverwrite = useCallback(
+    async (slotId: string, name: string) => {
+      await saveToSlot(slotId, name)
+    },
+    [saveToSlot],
   )
 
   if (!session) {
@@ -143,8 +194,27 @@ export function PlayWorkbench() {
       </aside>
 
       <footer className={styles.feelies} data-testid="feelies-placeholder">
-        {/* Feelies strip — Task 17 */}
+        <div className={styles.feeliesActions}>
+          <button
+            type="button"
+            className={styles.savesBtn}
+            onClick={() => setSavesOpen(true)}
+            data-testid="saves-button"
+          >
+            Saves
+          </button>
+        </div>
       </footer>
+
+      <SaveModal
+        open={savesOpen}
+        gameId={session.gameId}
+        canSave
+        onClose={() => setSavesOpen(false)}
+        onLoad={onLoadSlot}
+        onSaveNew={onSaveNew}
+        onOverwrite={onOverwrite}
+      />
 
       {error != null && error !== '' && (
         <div className={styles.errorBanner} role="alert">

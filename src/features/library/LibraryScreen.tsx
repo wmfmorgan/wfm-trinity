@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
 import type { LibraryGame } from '../../domain/types'
+import { getLatestAutosave } from '../../persistence/saveRepo'
 import { usePlayStore } from '../play/playStore'
 import { CoverPlaceholder } from './CoverPlaceholder'
 import { useLibraryStore } from './libraryStore'
@@ -32,16 +33,45 @@ export function LibraryScreen() {
   const clearPlayError = usePlayStore((s) => s.clearError)
 
   const [pendingDelete, setPendingDelete] = useState<LibraryGame | null>(null)
+  const [pendingNewGame, setPendingNewGame] = useState<LibraryGame | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [openingId, setOpeningId] = useState<string | null>(null)
+  /** gameId → has latest autosave (Continue available) */
+  const [autosaveByGame, setAutosaveByGame] = useState<Record<string, boolean>>(
+    {},
+  )
 
   const titleId = useId()
   const dialogTitleId = useId()
+  const newGameTitleId = useId()
 
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Resolve which games have an autosave for Continue
+  useEffect(() => {
+    let cancelled = false
+    async function loadFlags() {
+      const flags: Record<string, boolean> = {}
+      await Promise.all(
+        games.map(async (g) => {
+          try {
+            const save = await getLatestAutosave(g.gameId)
+            flags[g.gameId] = !!save
+          } catch {
+            flags[g.gameId] = false
+          }
+        }),
+      )
+      if (!cancelled) setAutosaveByGame(flags)
+    }
+    void loadFlags()
+    return () => {
+      cancelled = true
+    }
+  }, [games])
 
   const error = libraryError ?? playError
 
@@ -61,6 +91,21 @@ export function LibraryScreen() {
     } finally {
       setOpeningId(null)
     }
+  }
+
+  function requestNewGame(game: LibraryGame) {
+    if (autosaveByGame[game.gameId]) {
+      setPendingNewGame(game)
+      return
+    }
+    void handleOpen(game.gameId, 'new')
+  }
+
+  async function confirmNewGame() {
+    if (!pendingNewGame) return
+    const id = pendingNewGame.gameId
+    setPendingNewGame(null)
+    await handleOpen(id, 'new')
   }
 
   function startEdit(game: LibraryGame) {
@@ -206,21 +251,29 @@ export function LibraryScreen() {
 
                     {!isEditing ? (
                       <div className={styles.actions}>
+                        {autosaveByGame[game.gameId] ? (
+                          <button
+                            type="button"
+                            className={`${styles.btn} ${styles.btnPrimary}`}
+                            disabled={busy || loading}
+                            onClick={() =>
+                              void handleOpen(game.gameId, 'continue')
+                            }
+                          >
+                            Continue
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          className={`${styles.btn} ${styles.btnPrimary}`}
+                          className={
+                            autosaveByGame[game.gameId]
+                              ? styles.btn
+                              : `${styles.btn} ${styles.btnPrimary}`
+                          }
                           disabled={busy || loading}
-                          onClick={() => void handleOpen(game.gameId, 'continue')}
+                          onClick={() => requestNewGame(game)}
                         >
-                          Continue
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btn}
-                          disabled={busy || loading}
-                          onClick={() => void handleOpen(game.gameId, 'new')}
-                        >
-                          New
+                          New Game
                         </button>
                         <button
                           type="button"
@@ -283,6 +336,49 @@ export function LibraryScreen() {
                 onClick={() => void confirmDelete()}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingNewGame ? (
+        <div
+          className={styles.overlay}
+          role="presentation"
+          onClick={() => setPendingNewGame(null)}
+        >
+          <div
+            className={styles.dialog}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={newGameTitleId}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="new-game-confirm"
+          >
+            <h2 className={styles.dialogTitle} id={newGameTitleId}>
+              Start new game?
+            </h2>
+            <p className={styles.dialogBody}>
+              An autosave exists for &ldquo;{pendingNewGame.metadata.title}
+              &rdquo;. Starting a new game will leave that save in place but
+              begin a fresh run (map and progress start over). Continue only
+              if you want a clean start.
+            </p>
+            <div className={styles.dialogActions}>
+              <button
+                type="button"
+                className={styles.btn}
+                onClick={() => setPendingNewGame(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                onClick={() => void confirmNewGame()}
+              >
+                New Game
               </button>
             </div>
           </div>

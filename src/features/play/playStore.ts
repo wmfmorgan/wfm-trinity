@@ -7,7 +7,7 @@ import {
 import { getLatestAutosave } from '../../persistence/saveRepo'
 import { createAdapter } from '../../zmachine/createAdapter'
 import type { AdapterKind, ZMachineAdapter } from '../../zmachine/types'
-import { autosave, loadSlot } from '../saves/saveService'
+import { autosave, loadSlot, saveSlot } from '../saves/saveService'
 import {
   startFromSave,
   startNewSession,
@@ -31,6 +31,10 @@ export interface PlayState {
   pendingInsertId: number
   openGame: (gameId: string, mode: OpenGameMode) => Promise<void>
   submit: (line: string) => Promise<void>
+  /** Manual named slot write (Save new / Overwrite). */
+  saveToSlot: (slotId: string, name: string) => Promise<void>
+  /** Best-effort autosave for pagehide / visibilitychange. */
+  flushAutosave: () => Promise<void>
   returnToLibrary: () => void
   selectMapRoom: (roomId: string | null) => void
   queueInsert: (text: string) => void
@@ -159,6 +163,32 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       const message =
         err instanceof Error ? err.message : 'Command failed'
       set({ error: message })
+    }
+  },
+
+  saveToSlot: async (slotId, name) => {
+    const { session, adapter } = get()
+    if (!session || !adapter) {
+      set({ error: 'No active game session' })
+      throw new Error('No active game session')
+    }
+    try {
+      await saveSlot(session, adapter, slotId, name)
+      set({ error: null })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Save failed'
+      set({ error: `Save failed: ${message}` })
+      throw err instanceof Error ? err : new Error(message)
+    }
+  },
+
+  flushAutosave: async () => {
+    const { session, adapter } = get()
+    if (!session || !adapter) return
+    try {
+      await autosave(session, adapter)
+    } catch {
+      // Best-effort only — do not surface errors on page hide
     }
   },
 }))

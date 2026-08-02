@@ -126,7 +126,43 @@
   border: 2px dashed var(--crt-border);
   border-radius: 6px;
   background: var(--crt-panel);
-  opacity: 0.65;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 0.75rem;
+  box-sizing: border-box;
+}
+
+.feeliesActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.savesBtn {
+  appearance: none;
+  margin: 0;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--crt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--crt-fg-bright);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.savesBtn:hover {
+  border-color: var(--crt-fg-dim);
+  background: rgba(51, 255, 102, 0.08);
+}
+
+.savesBtn:focus-visible {
+  outline: 1px solid var(--crt-fg);
+  outline-offset: 2px;
 }
 
 .emptySession {
