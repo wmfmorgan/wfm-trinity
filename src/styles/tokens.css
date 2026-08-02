@@ -9,6 +9,9 @@
   --crt-danger: #ff4466;
   --crt-font: "IBM Plex Mono", "ui-monospace", "Cascadia Code", monospace;
   --crt-scanline-opacity: 0.08;
+  --crt-glow: 0 0 6px rgba(51, 255, 102, 0.3);
+  --crt-glow-strong: 0 0 8px rgba(51, 255, 102, 0.4);
+  --crt-panel-glow: 0 0 12px rgba(51, 255, 102, 0.08);
   --rail-width: 220px;
   --map-min-width: 280px;
   --status-height: 40px;
@@ -18,5 +21,8 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --crt-scanline-opacity: 0;
+    --crt-glow: none;
+    --crt-glow-strong: none;
+    --crt-panel-glow: none;
   }
 }

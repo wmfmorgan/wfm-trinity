@@ -9,7 +9,7 @@
   border-radius: 8px;
   box-shadow:
     inset 0 0 24px rgba(0, 0, 0, 0.45),
-    0 0 12px rgba(51, 255, 102, 0.08);
+    var(--crt-panel-glow);
   color: var(--crt-fg);
   font-family: var(--crt-font);
   overflow: hidden;
@@ -24,7 +24,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--crt-fg-bright);
-  text-shadow: 0 0 6px rgba(51, 255, 102, 0.3);
+  text-shadow: var(--crt-glow);
 }
 
 .panelBody {
@@ -56,7 +56,7 @@
 .statusTitle {
   font-weight: 600;
   color: var(--crt-fg-bright);
-  text-shadow: 0 0 6px rgba(51, 255, 102, 0.3);
+  text-shadow: var(--crt-glow);
 }
 
 .statusField {

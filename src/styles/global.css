@@ -10,6 +10,17 @@ body,
   font-family: var(--crt-font);
 }
 
+/* Soft phosphor glow on primary text when motion is ok */
+body {
+  text-shadow: var(--crt-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    text-shadow: none;
+  }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

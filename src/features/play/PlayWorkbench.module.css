@@ -18,6 +18,22 @@
   color: var(--crt-fg);
   font-family: var(--crt-font);
   position: relative;
+  overflow: hidden;
+}
+
+/* Workbench-level CRT scanlines */
+.scanlines {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, var(--crt-scanline-opacity)) 2px,
+    rgba(0, 0, 0, var(--crt-scanline-opacity)) 4px
+  );
 }
 
 .status {
@@ -27,6 +43,8 @@
   gap: 0.5rem;
   min-height: 0;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .libraryBtn {
@@ -43,12 +61,13 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
-  text-shadow: 0 0 6px rgba(51, 255, 102, 0.3);
+  text-shadow: var(--crt-glow);
 }
 
 .libraryBtn:hover {
   border-color: var(--crt-fg-dim);
   background: rgba(51, 255, 102, 0.08);
+  box-shadow: 0 0 10px rgba(51, 255, 102, 0.15);
 }
 
 .libraryBtn:focus-visible {
@@ -67,6 +86,57 @@
   box-sizing: border-box;
 }
 
+/* Responsive tab strip (medium / narrow) */
+.tabs {
+  grid-area: tabs;
+  display: none;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+  padding: 0;
+}
+
+.tab,
+.tabActive {
+  flex: 1;
+  appearance: none;
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  border: 2px solid var(--crt-border);
+  border-radius: 6px;
+  background: var(--crt-panel);
+  color: var(--crt-fg-dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.tab:hover {
+  border-color: var(--crt-fg-dim);
+  color: var(--crt-fg);
+}
+
+.tab:focus-visible,
+.tabActive:focus-visible {
+  outline: 1px solid var(--crt-fg);
+  outline-offset: 2px;
+}
+
+.tabActive {
+  color: var(--crt-fg-bright);
+  border-color: var(--crt-fg-dim);
+  background: rgba(51, 255, 102, 0.1);
+  text-shadow: var(--crt-glow);
+  box-shadow: 0 0 10px rgba(51, 255, 102, 0.12);
+}
+
 .left {
   grid-area: left;
   display: flex;
@@ -75,6 +145,8 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .inventory {
@@ -100,6 +172,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .terminal > * {
@@ -113,6 +187,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 .map > * {
@@ -127,6 +203,8 @@
   display: flex;
   align-items: stretch;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .feelies > * {
@@ -153,6 +231,7 @@
 .savesBtn:hover {
   border-color: var(--crt-fg-dim);
   background: rgba(51, 255, 102, 0.08);
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.12);
 }
 
 .savesBtn:focus-visible {
@@ -169,6 +248,8 @@
   justify-content: center;
   gap: 1rem;
   color: var(--crt-fg-dim);
+  position: relative;
+  z-index: 1;
 }
 
 .linkBtn {
@@ -203,11 +284,77 @@
   background: rgba(20, 0, 0, 0.85);
   color: var(--crt-danger);
   font-size: 0.85rem;
-  z-index: 5;
+  z-index: 35;
+}
+
+/* Hidden panes stay mounted (map pan/zoom state) but off-screen */
+.paneHidden {
+  display: none !important;
+}
+
+/* —— Medium: max-width 1100px — map as tab/drawer; left rail + terminal —— */
+.root[data-breakpoint='medium'] {
+  grid-template:
+    'status status' minmax(var(--status-height), auto)
+    'tabs tabs' auto
+    'left main' 1fr
+    'feelies feelies' var(--feelies-height)
+    / var(--rail-width) 1fr;
+}
+
+.root[data-breakpoint='medium'] .tabs {
+  display: flex;
+}
+
+.root[data-breakpoint='medium'] .terminal,
+.root[data-breakpoint='medium'] .map {
+  grid-area: main;
+}
+
+/* —— Narrow: max-width 720px — tabs Play | Map | Inv | More —— */
+.root[data-breakpoint='narrow'] {
+  grid-template:
+    'status' minmax(var(--status-height), auto)
+    'tabs' auto
+    'main' 1fr
+    / 1fr;
+  --feelies-height: auto;
+}
+
+.root[data-breakpoint='narrow'] .tabs {
+  display: flex;
+}
+
+.root[data-breakpoint='narrow'] .left,
+.root[data-breakpoint='narrow'] .terminal,
+.root[data-breakpoint='narrow'] .map,
+.root[data-breakpoint='narrow'] .feelies {
+  grid-area: main;
+}
+
+.root[data-breakpoint='narrow'] .feelies {
+  min-height: 0;
+  align-items: stretch;
+  overflow: auto;
+}
+
+.root[data-breakpoint='narrow'] .errorBanner {
+  bottom: 0.75rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .libraryBtn {
+  .libraryBtn,
+  .tabActive {
     text-shadow: none;
+  }
+
+  .libraryBtn:hover,
+  .tabActive,
+  .savesBtn:hover {
+    box-shadow: none;
+  }
+
+  .scanlines {
+    opacity: 0;
   }
 }

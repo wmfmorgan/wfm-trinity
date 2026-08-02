@@ -11,7 +11,10 @@ import { InventoryPanel } from './InventoryPanel'
 import { usePlayStore } from './playStore'
 import { StatusBar } from './StatusBar'
 import { Terminal } from './Terminal'
+import { useMediaQuery } from './useMediaQuery'
 import styles from './PlayWorkbench.module.css'
+
+export type WorkbenchPane = 'play' | 'map' | 'inv' | 'more'
 
 function focusCommandInput() {
   const el = document.getElementById('command-input')
@@ -37,6 +40,23 @@ export function PlayWorkbench() {
 
   const games = useLibraryStore((s) => s.games)
   const [savesOpen, setSavesOpen] = useState(false)
+  /** Local responsive tab state (medium: play|map; narrow: play|map|inv|more). */
+  const [pane, setPane] = useState<WorkbenchPane>('play')
+
+  const isNarrow = useMediaQuery('(max-width: 720px)')
+  const isMedium = useMediaQuery('(max-width: 1100px)')
+  const breakpoint: 'wide' | 'medium' | 'narrow' = isNarrow
+    ? 'narrow'
+    : isMedium
+      ? 'medium'
+      : 'wide'
+
+  // Medium only supports play|map tabs — drop inv/more when leaving narrow
+  useEffect(() => {
+    if (breakpoint !== 'narrow' && (pane === 'inv' || pane === 'more')) {
+      setPane('play')
+    }
+  }, [breakpoint, pane])
 
   const title = useMemo(() => {
     if (!session) return 'Adventure'
@@ -130,7 +150,12 @@ export function PlayWorkbench() {
 
   if (!session) {
     return (
-      <div className={styles.root} data-testid="play-workbench">
+      <div
+        className={styles.root}
+        data-testid="play-workbench"
+        data-breakpoint={breakpoint}
+      >
+        <div className={styles.scanlines} aria-hidden="true" />
         <div className={styles.emptySession}>
           <p>No active session.</p>
           <button type="button" className={styles.linkBtn} onClick={returnToLibrary}>
@@ -144,8 +169,47 @@ export function PlayWorkbench() {
   const { snapshot, fullTranscript, map } = session
   const disabled = snapshot.waitingFor === 'finished'
 
+  // Visibility by breakpoint + local pane
+  const showLeft =
+    breakpoint === 'wide' ||
+    breakpoint === 'medium' ||
+    (breakpoint === 'narrow' && pane === 'inv')
+  const showTerminal =
+    breakpoint === 'wide' ||
+    (breakpoint === 'medium' && pane !== 'map') ||
+    (breakpoint === 'narrow' && pane === 'play')
+  const showMap =
+    breakpoint === 'wide' ||
+    (breakpoint === 'medium' && pane === 'map') ||
+    (breakpoint === 'narrow' && pane === 'map')
+  const showFeelies =
+    breakpoint === 'wide' ||
+    breakpoint === 'medium' ||
+    (breakpoint === 'narrow' && pane === 'more')
+
+  const showMediumTabs = breakpoint === 'medium'
+  const showNarrowTabs = breakpoint === 'narrow'
+
+  const savesAction = (
+    <button
+      type="button"
+      className={styles.savesBtn}
+      onClick={() => setSavesOpen(true)}
+      data-testid="saves-button"
+    >
+      Saves
+    </button>
+  )
+
   return (
-    <div className={styles.root} data-testid="play-workbench">
+    <div
+      className={styles.root}
+      data-testid="play-workbench"
+      data-breakpoint={breakpoint}
+      data-pane={pane}
+    >
+      <div className={styles.scanlines} aria-hidden="true" />
+
       <header className={styles.status}>
         <button
           type="button"
@@ -159,7 +223,68 @@ export function PlayWorkbench() {
         </div>
       </header>
 
-      <aside className={styles.left} aria-label="Inventory and compass">
+      {showMediumTabs && (
+        <nav
+          className={styles.tabs}
+          role="tablist"
+          aria-label="Workbench views"
+          data-testid="workbench-tabs-medium"
+        >
+          <TabButton
+            id="play"
+            label="Play"
+            selected={pane !== 'map'}
+            onSelect={() => setPane('play')}
+          />
+          <TabButton
+            id="map"
+            label="Map"
+            selected={pane === 'map'}
+            onSelect={() => setPane('map')}
+          />
+        </nav>
+      )}
+
+      {showNarrowTabs && (
+        <nav
+          className={styles.tabs}
+          role="tablist"
+          aria-label="Workbench views"
+          data-testid="workbench-tabs-narrow"
+        >
+          <TabButton
+            id="play"
+            label="Play"
+            selected={pane === 'play'}
+            onSelect={() => setPane('play')}
+          />
+          <TabButton
+            id="map"
+            label="Map"
+            selected={pane === 'map'}
+            onSelect={() => setPane('map')}
+          />
+          <TabButton
+            id="inv"
+            label="Inv"
+            selected={pane === 'inv'}
+            onSelect={() => setPane('inv')}
+          />
+          <TabButton
+            id="more"
+            label="More"
+            selected={pane === 'more'}
+            onSelect={() => setPane('more')}
+          />
+        </nav>
+      )}
+
+      <aside
+        className={`${styles.left}${showLeft ? '' : ` ${styles.paneHidden}`}`}
+        aria-label="Inventory and compass"
+        aria-hidden={!showLeft}
+        data-testid="workbench-left"
+      >
         <div className={styles.inventory}>
           <InventoryPanel
             items={snapshot.inventory}
@@ -172,7 +297,11 @@ export function PlayWorkbench() {
         </div>
       </aside>
 
-      <main className={styles.terminal}>
+      <main
+        className={`${styles.terminal}${showTerminal ? '' : ` ${styles.paneHidden}`}`}
+        aria-hidden={!showTerminal}
+        data-testid="workbench-terminal"
+      >
         <Terminal
           transcript={fullTranscript}
           disabled={disabled}
@@ -184,7 +313,12 @@ export function PlayWorkbench() {
         />
       </main>
 
-      <aside className={styles.map} aria-label="Map pane">
+      <aside
+        className={`${styles.map}${showMap ? '' : ` ${styles.paneHidden}`}`}
+        aria-label="Map pane"
+        aria-hidden={!showMap}
+        data-testid="workbench-map"
+      >
         <MapView
           graph={map}
           currentRoomId={snapshot.location.id}
@@ -194,20 +328,12 @@ export function PlayWorkbench() {
         />
       </aside>
 
-      <footer className={styles.feelies}>
-        <FeeliesStrip
-          gameId={session.gameId}
-          actions={
-            <button
-              type="button"
-              className={styles.savesBtn}
-              onClick={() => setSavesOpen(true)}
-              data-testid="saves-button"
-            >
-              Saves
-            </button>
-          }
-        />
+      <footer
+        className={`${styles.feelies}${showFeelies ? '' : ` ${styles.paneHidden}`}`}
+        aria-hidden={!showFeelies}
+        data-testid="workbench-feelies"
+      >
+        <FeeliesStrip gameId={session.gameId} actions={savesAction} />
       </footer>
 
       <SaveModal
@@ -229,5 +355,31 @@ export function PlayWorkbench() {
         </div>
       )}
     </div>
+  )
+}
+
+function TabButton({
+  id,
+  label,
+  selected,
+  onSelect,
+}: {
+  id: string
+  label: string
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      id={`workbench-tab-${id}`}
+      aria-selected={selected}
+      className={selected ? styles.tabActive : styles.tab}
+      onClick={onSelect}
+      data-testid={`workbench-tab-${id}`}
+    >
+      {label}
+    </button>
   )
 }
