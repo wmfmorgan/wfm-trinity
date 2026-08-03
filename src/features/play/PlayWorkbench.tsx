@@ -25,6 +25,7 @@ function focusCommandInput() {
 
 export function PlayWorkbench() {
   const session = usePlayStore((s) => s.session)
+  const busy = usePlayStore((s) => s.busy)
   const pendingInsert = usePlayStore((s) => s.pendingInsert)
   const pendingInsertId = usePlayStore((s) => s.pendingInsertId)
   const submit = usePlayStore((s) => s.submit)
@@ -165,7 +166,7 @@ export function PlayWorkbench() {
   }
 
   const { snapshot, fullTranscript, map } = session
-  const disabled = snapshot.waitingFor === 'finished'
+  const disabled = snapshot.waitingFor === 'finished' || busy
 
   // Visibility by breakpoint + local pane
   const showLeft =
@@ -291,7 +292,7 @@ export function PlayWorkbench() {
           />
         </div>
         <div className={styles.compass}>
-          <Compass exits={snapshot.exits} onMove={onMove} />
+          <Compass exits={snapshot.exits} onMove={onMove} disabled={disabled} />
         </div>
       </aside>
 

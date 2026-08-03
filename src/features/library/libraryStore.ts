@@ -29,6 +29,12 @@ export function titleFromFileName(fileName: string): string {
   return stripped.length > 0 ? stripped : base
 }
 
+/** True for Blorb container filenames (not unwrapped yet). */
+export function isBlorbFileName(fileName: string): boolean {
+  const base = (fileName.split(/[/\\]/).pop() ?? fileName).toLowerCase()
+  return base.endsWith('.zblorb') || base.endsWith('.blorb')
+}
+
 /** Read file bytes; works when `File.arrayBuffer` is missing (jsdom). */
 export async function readFileBytes(file: Blob): Promise<ArrayBuffer> {
   return blobToArrayBuffer(file)
@@ -66,6 +72,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       for (const file of list) {
+        if (isBlorbFileName(file.name || '')) {
+          throw new Error(
+            `Blorb containers are not supported yet (${file.name}). ` +
+              'Only raw Z-machine story files (.z3–.z8) can be imported for now — ' +
+              'export or unwrap to raw ZCOD first.',
+          )
+        }
         const bytes = await readFileBytes(file)
         if (bytes.byteLength === 0) {
           throw new Error(

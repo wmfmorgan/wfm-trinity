@@ -23,6 +23,7 @@ function resetStore() {
     session: null,
     adapter: null,
     error: null,
+    busy: false,
     pendingInsert: null,
     pendingInsertId: 0,
   })
@@ -134,11 +135,44 @@ describe('playStore', () => {
     expect(state.session!.snapshot.location.id).toBe('woods')
     expect(state.session!.history).toEqual(['north'])
     expect(state.session!.turn).toBe(1)
+    expect(state.busy).toBe(false)
 
     const record = await getSave(gameId, 'autosave')
     expect(record).toBeDefined()
     expect(record!.name).toBe('Autosave')
     expect(record!.shell.history).toEqual(['north'])
+  })
+
+  it('double-submit while busy does not throw and second is ignored', async () => {
+    const gameId = await seedGame('double-submit')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    const adapter = usePlayStore.getState().adapter!
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const originalSubmit = adapter.submit.bind(adapter)
+    vi.spyOn(adapter, 'submit').mockImplementation(async (line) => {
+      await gate
+      return originalSubmit(line)
+    })
+
+    const first = usePlayStore.getState().submit('north')
+    // Busy flag set synchronously before first await
+    expect(usePlayStore.getState().busy).toBe(true)
+
+    const second = usePlayStore.getState().submit('look')
+    await expect(second).resolves.toBeUndefined()
+
+    release()
+    await expect(first).resolves.toBeUndefined()
+
+    const state = usePlayStore.getState()
+    expect(state.busy).toBe(false)
+    expect(state.session!.history).toEqual(['north'])
+    expect(state.session!.snapshot.location.id).toBe('woods')
+    expect(adapter.submit).toHaveBeenCalledTimes(1)
   })
 
   it('submit soft-fails autosave without losing session', async () => {

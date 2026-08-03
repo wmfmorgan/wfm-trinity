@@ -35,7 +35,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ## How to import a story (e.g. Trinity)
 
-1. Obtain a legal Z-machine story file (example filenames: `trinity.z5`, `trinity.zblorb`).
+1. Obtain a legal raw Z-machine story file (example filename: `trinity.z5`).
 2. Open the app → **Library**.
 3. Click **Import** and choose one or more story files.
 4. The game appears as a card (title derived from the filename; you can rename it).
@@ -44,9 +44,9 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 Supported extensions (gitignored — never commit them):
 
-- `.z3`–`.z8`
-- `.zblorb` / `.blorb`
-- `.zmachine`
+- `.z3`–`.z8` (raw ZCOD)
+
+**Not yet supported:** `.zblorb` / `.blorb` containers are rejected at import with a clear error — unwrap to raw Z-code first. Do not commit story files either way.
 
 Empty or unreadable files surface an error banner and are not added to the library.
 

@@ -56,6 +56,7 @@ function resetStores() {
     session: null,
     adapter: null,
     error: null,
+    busy: false,
     pendingInsert: null,
     pendingInsertId: 0,
     openGame: vi.fn(async () => {}),
@@ -134,7 +135,7 @@ describe('LibraryScreen', () => {
     const input = screen.getByLabelText(/import story files/i)
     expect(input).toHaveAttribute(
       'accept',
-      '.z3,.z4,.z5,.z6,.z7,.z8,.zblorb,.blorb,application/octet-stream',
+      '.z3,.z4,.z5,.z6,.z7,.z8,application/octet-stream',
     )
   })
 

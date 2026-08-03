@@ -30,6 +30,19 @@ describe('Compass', () => {
     expect(south).toHaveAttribute('aria-disabled', 'true')
   })
 
+  it('disables all exits when disabled prop is set', async () => {
+    const user = userEvent.setup()
+    const onMove = vi.fn()
+    render(
+      <Compass exits={[{ dir: 'north' }, { dir: 'east' }]} onMove={onMove} disabled />,
+    )
+
+    const north = screen.getByRole('button', { name: 'north' })
+    expect(north).toBeDisabled()
+    await user.click(north)
+    expect(onMove).not.toHaveBeenCalled()
+  })
+
   it('exposes a button for every ALL_DIRS direction', () => {
     expect(compassCoversAllDirs()).toBe(true)
     render(<Compass exits={[]} onMove={vi.fn()} />)

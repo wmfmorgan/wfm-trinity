@@ -5,6 +5,8 @@ import styles from './panels.module.css'
 export interface CompassProps {
   exits: ExitInfo[]
   onMove: (dir: Direction) => void
+  /** When true, all direction buttons are disabled (e.g. submit in flight). */
+  disabled?: boolean
 }
 
 /** Short labels for compact compass buttons. */
@@ -48,11 +50,11 @@ function enabledDirs(exits: ExitInfo[]): Set<Direction> {
   return new Set(exits.map((e) => e.dir))
 }
 
-export function Compass({ exits, onMove }: CompassProps) {
+export function Compass({ exits, onMove, disabled = false }: CompassProps) {
   const available = enabledDirs(exits)
 
   function renderBtn(dir: Direction) {
-    const enabled = available.has(dir)
+    const enabled = !disabled && available.has(dir)
     return (
       <button
         key={dir}

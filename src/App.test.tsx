@@ -26,6 +26,7 @@ describe('App', () => {
       session: null,
       adapter: null,
       error: null,
+      busy: false,
       pendingInsert: null,
       pendingInsertId: 0,
       openGame: vi.fn(async () => {}),

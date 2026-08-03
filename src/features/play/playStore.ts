@@ -23,6 +23,11 @@ export interface PlayState {
   adapter: ZMachineAdapter | null
   error: string | null
   /**
+   * True while a command turn (submit) is in flight.
+   * Used to ignore concurrent submits and disable input/compass.
+   */
+  busy: boolean
+  /**
    * One-shot insert for Terminal (inventory click).
    * Terminal applies via insertText prop and clears with clearPendingInsert.
    */
@@ -61,6 +66,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   session: null,
   adapter: null,
   error: null,
+  busy: false,
   pendingInsert: null,
   pendingInsertId: 0,
 
@@ -83,6 +89,7 @@ export const usePlayStore = create<PlayState>((set, get) => ({
       session: null,
       adapter: null,
       error: null,
+      busy: false,
       pendingInsert: null,
     }),
 
@@ -144,12 +151,15 @@ export const usePlayStore = create<PlayState>((set, get) => ({
   },
 
   submit: async (line) => {
-    const { session, adapter } = get()
+    const { session, adapter, busy } = get()
     if (!session || !adapter) {
       set({ error: 'No active game session' })
       return
     }
+    // Ignore concurrent submits while a turn is in flight (no throw).
+    if (busy) return
 
+    set({ busy: true })
     try {
       const next = await submitCommand(session, adapter, line)
       set({ session: next, error: null })
@@ -170,6 +180,8 @@ export const usePlayStore = create<PlayState>((set, get) => ({
         : `Interpreter error: ${raw}`
       // Keep session so the user can dismiss or return to library from the banner.
       set({ error: message })
+    } finally {
+      set({ busy: false })
     }
   },
 

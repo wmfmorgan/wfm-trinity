@@ -67,8 +67,7 @@ function GameCover({
   return <CoverPlaceholder title={title} className={className} />
 }
 
-const STORY_ACCEPT =
-  '.z3,.z4,.z5,.z6,.z7,.z8,.zblorb,.blorb,application/octet-stream'
+const STORY_ACCEPT = '.z3,.z4,.z5,.z6,.z7,.z8,application/octet-stream'
 
 function formatWhen(ts: number | undefined): string | null {
   if (ts == null) return null
@@ -231,8 +230,8 @@ export function LibraryScreen() {
           <div className={styles.empty} data-testid="library-empty">
             <p className={styles.emptyTitle}>No games</p>
             <p className={styles.emptyHint}>
-              Add a Z-machine story file (.z3–.z8, .zblorb, .blorb) to your local
-              library.
+              Add a raw Z-machine story file (.z3–.z8) to your local library.
+              Blorb containers (.zblorb / .blorb) are not unwrapped yet.
             </p>
           </div>
         ) : null}

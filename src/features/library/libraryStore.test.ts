@@ -6,6 +6,7 @@ import { getGame, getStoryBytes, getCover } from '../../persistence/libraryRepo'
 import { hashStoryBytes } from '../../domain/gameId'
 import { blobToText } from '../../persistence/blobUtil'
 import {
+  isBlorbFileName,
   readFileBytes,
   titleFromFileName,
   useLibraryStore,
@@ -36,6 +37,20 @@ describe('titleFromFileName', () => {
 
   it('keeps name without extension', () => {
     expect(titleFromFileName('story')).toBe('story')
+  })
+})
+
+describe('isBlorbFileName', () => {
+  it('detects .zblorb and .blorb case-insensitively', () => {
+    expect(isBlorbFileName('trinity.zblorb')).toBe(true)
+    expect(isBlorbFileName('Game.BLORB')).toBe(true)
+    expect(isBlorbFileName('path/to/x.ZBlorb')).toBe(true)
+  })
+
+  it('rejects raw Z-code extensions', () => {
+    expect(isBlorbFileName('minizork.z3')).toBe(false)
+    expect(isBlorbFileName('trinity.z5')).toBe(false)
+    expect(isBlorbFileName('story.z8')).toBe(false)
   })
 })
 
@@ -95,6 +110,26 @@ describe('libraryStore', () => {
     expect(loading).toBe(false)
     expect(error).toMatch(/empty or unreadable/i)
     expect(error).toMatch(/corrupt\.z5/)
+  })
+
+  it('importFiles rejects .zblorb/.blorb with clear raw-ZCOD-only message', async () => {
+    await useLibraryStore
+      .getState()
+      .importFiles([makeFile('trinity.zblorb', 'FORM....')])
+
+    const { games, loading, error } = useLibraryStore.getState()
+    expect(games).toHaveLength(0)
+    expect(loading).toBe(false)
+    expect(error).toMatch(/blorb/i)
+    expect(error).toMatch(/not supported/i)
+    expect(error).toMatch(/\.z3/)
+    expect(error).toMatch(/trinity\.zblorb/)
+
+    await useLibraryStore
+      .getState()
+      .importFiles([makeFile('wrapped.blorb', 'FORM....')])
+    expect(useLibraryStore.getState().error).toMatch(/wrapped\.blorb/)
+    expect(useLibraryStore.getState().games).toHaveLength(0)
   })
 
   it('removeGame deletes cascade and refreshes', async () => {
