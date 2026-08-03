@@ -19,7 +19,13 @@ import styles from './Terminal.module.css'
 
 export interface TerminalProps {
   transcript: string
+  /** Game finished — input is disabled and cannot take focus. */
   disabled?: boolean
+  /**
+   * Submit in flight. Do NOT disable the input (that steals focus); only
+   * block submitting another line until the turn settles.
+   */
+  busy?: boolean
   onSubmit: (line: string) => void
   candidates: string[]
   /** When set (with a new insertId), appends to draft then notifies onInsertApplied. */
@@ -59,6 +65,7 @@ function linePrefixOf(input: string): string {
 export function Terminal({
   transcript,
   disabled = false,
+  busy = false,
   onSubmit,
   candidates,
   insertText = null,
@@ -137,7 +144,8 @@ export function Terminal({
 
   function submitLine(raw: string) {
     const line = raw.trim()
-    if (!line || disabled) return
+    // Keep focus while busy: do not clear draft or fire onSubmit.
+    if (!line || disabled || busy) return
     onSubmit(line)
     setAssist((s) => pushHistory(s, line))
     clearAutocomplete()
@@ -243,6 +251,7 @@ export function Terminal({
               autoCapitalize="off"
               spellCheck={false}
               disabled={disabled}
+              aria-busy={busy || undefined}
               value={assist.draft}
               aria-label="Command"
               aria-autocomplete="list"

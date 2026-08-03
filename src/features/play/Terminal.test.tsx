@@ -9,8 +9,12 @@ function setup(props: Partial<TerminalProps> = {}) {
     <Terminal
       transcript={props.transcript ?? 'You are in a meadow.'}
       disabled={props.disabled}
+      busy={props.busy}
       onSubmit={onSubmit}
       candidates={props.candidates ?? ['look', 'lamp', 'lantern', 'take', 'north']}
+      insertText={props.insertText}
+      insertId={props.insertId}
+      onInsertApplied={props.onInsertApplied}
     />,
   )
   const input = screen.getByRole('textbox')
@@ -129,6 +133,22 @@ describe('Terminal', () => {
     expect(input).toBeDisabled()
     await user.type(input, 'look{enter}')
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('keeps input enabled while busy so focus is not stolen', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    const { input } = setup({ busy: true, onSubmit })
+
+    expect(input).not.toBeDisabled()
+    expect(input).toHaveAttribute('aria-busy', 'true')
+    input.focus()
+    expect(input).toHaveFocus()
+    await user.type(input, 'look{enter}')
+    // Submit blocked while busy; draft retained and focus stays
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(input).toHaveValue('look')
+    expect(input).toHaveFocus()
   })
 
   it('applies insertText into the draft and calls onInsertApplied', async () => {

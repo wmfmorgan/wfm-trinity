@@ -166,7 +166,10 @@ export function PlayWorkbench() {
   }
 
   const { snapshot, fullTranscript, map } = session
-  const disabled = snapshot.waitingFor === 'finished' || busy
+  // Game over truly disables input. Busy must NOT disable the command field —
+  // HTML disabled inputs drop focus, so every turn would kick the player out.
+  const gameOver = snapshot.waitingFor === 'finished'
+  const compassDisabled = gameOver || busy
 
   // Visibility by breakpoint + local pane
   const showLeft =
@@ -292,7 +295,11 @@ export function PlayWorkbench() {
           />
         </div>
         <div className={styles.compass}>
-          <Compass exits={snapshot.exits} onMove={onMove} disabled={disabled} />
+          <Compass
+            exits={snapshot.exits}
+            onMove={onMove}
+            disabled={compassDisabled}
+          />
         </div>
       </aside>
 
@@ -303,7 +310,8 @@ export function PlayWorkbench() {
       >
         <Terminal
           transcript={fullTranscript}
-          disabled={disabled}
+          disabled={gameOver}
+          busy={busy}
           onSubmit={onSubmit}
           candidates={candidates}
           insertText={pendingInsert}
