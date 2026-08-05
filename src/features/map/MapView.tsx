@@ -13,6 +13,7 @@ import type {
   MapGraphState,
   RoomNode,
 } from '../../domain/types'
+import { CompassRose } from './CompassRose'
 import styles from './MapView.module.css'
 
 export interface MapViewProps {
@@ -308,6 +309,7 @@ export function MapView({
             Explore to chart the map.
           </p>
         ) : null}
+        <CompassRose />
         <svg
           ref={svgRef}
           className={styles.svg}

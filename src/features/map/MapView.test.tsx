@@ -40,6 +40,23 @@ describe('MapView', () => {
     expect(screen.getAllByText('Meadow').length).toBeGreaterThan(0)
   })
 
+  it('shows a fixed compass rose with north-up orientation', () => {
+    render(
+      <MapView
+        graph={oneRoom}
+        currentRoomId="meadow"
+        exits={[]}
+        onSelectRoom={vi.fn()}
+      />,
+    )
+    const rose = screen.getByTestId('map-compass-rose')
+    expect(rose).toBeInTheDocument()
+    expect(rose).toHaveAttribute(
+      'aria-label',
+      expect.stringMatching(/north up/i),
+    )
+  })
+
   it('shows empty state when graph has no nodes', () => {
     render(
       <MapView

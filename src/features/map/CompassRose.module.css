@@ -1,0 +1,99 @@
+/* Fixed CRT compass rose overlay on the map viewport */
+
+.root {
+  position: absolute;
+  left: 0.55rem;
+  bottom: 0.55rem;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 6px rgba(51, 255, 102, 0.25));
+}
+
+.svg {
+  display: block;
+  width: 72px;
+  height: 72px;
+}
+
+.ring {
+  fill: rgba(10, 20, 10, 0.72);
+  stroke: var(--crt-border);
+  stroke-width: 1.5;
+}
+
+.ringInner {
+  fill: none;
+  stroke: var(--crt-fg-dim);
+  stroke-width: 0.75;
+  opacity: 0.55;
+}
+
+.tick {
+  stroke: var(--crt-fg-dim);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.tickDiag {
+  stroke: var(--crt-fg-dim);
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.needleNorth {
+  fill: var(--crt-fg-bright);
+  stroke: var(--crt-fg);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+
+.needleSouth,
+.needleEast,
+.needleWest {
+  fill: var(--crt-fg-dim);
+  stroke: var(--crt-border);
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+
+.hub {
+  fill: var(--crt-panel);
+  stroke: var(--crt-fg);
+  stroke-width: 1;
+}
+
+.labelN {
+  fill: var(--crt-fg-bright);
+  font-family: var(--crt-font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.labelS,
+.labelE,
+.labelW {
+  fill: var(--crt-fg-dim);
+  font-family: var(--crt-font);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    filter: none;
+  }
+}
+
+/* Shrink slightly on very narrow map panes */
+@media (max-width: 420px) {
+  .svg {
+    width: 56px;
+    height: 56px;
+  }
+}
