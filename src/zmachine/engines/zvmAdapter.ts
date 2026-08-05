@@ -18,12 +18,19 @@ import type {
   WaitingFor,
 } from '../../domain/types'
 import type { ZMachineAdapter } from '../types'
+import {
+  StoryValidationError,
+  validateStoryBytes,
+} from '../storyValidate'
 
 /** Magic header for workbench-local save blobs (not Quetzal). */
 const SAVE_MAGIC = 'IWZ1'
 
 /** Player object short-name heuristics (Infocom / Inform). */
 const PLAYER_NAME_RE = /^(you|cretin|yourself|player)$/i
+
+/** Max object number we will ask the engine for (V3/V4/V5 tables). */
+const MAX_OBJECT_NUM = 65_535
 
 interface BridgeStatus {
   location: string
@@ -42,10 +49,12 @@ class BridgeIO implements IOAdapter {
   private currentWindow = 0
   lastStatus: BridgeStatus | undefined
   hasQuit = false
+  /** Set when the VM run() rejects so waiters can fail instead of hang. */
+  private engineError: Error | null = null
 
   private lineResolve: ((r: ReadLineResult) => void) | null = null
   private charResolve: ((code: number) => void) | null = null
-  private waitingNotify: (() => void) | null = null
+  private waitingNotify: ((err?: Error) => void) | null = null
   private waitingKind: 'line' | 'char' | null = null
 
   initialize(_version: ZVersion): void {
@@ -139,12 +148,33 @@ class BridgeIO implements IOAdapter {
 
   /** Resolves when the engine next requests line or char input. */
   waitUntilInputRequested(): Promise<void> {
+    if (this.engineError) {
+      return Promise.reject(this.engineError)
+    }
     if (this.lineResolve || this.charResolve) {
       return Promise.resolve()
     }
-    return new Promise<void>((resolve) => {
-      this.waitingNotify = resolve
+    return new Promise<void>((resolve, reject) => {
+      this.waitingNotify = (err?: Error) => {
+        if (err) reject(err)
+        else resolve()
+      }
     })
+  }
+
+  /**
+   * Fail any pending waiters (used when machine.run() throws).
+   * Surfaces engine crashes as open/submit failures instead of hanging forever.
+   */
+  failPending(err: Error): void {
+    this.engineError = err
+    const n = this.waitingNotify
+    this.waitingNotify = null
+    n?.(err)
+    // Drop hanging input resolvers — run is dead
+    this.lineResolve = null
+    this.charResolve = null
+    this.waitingKind = null
   }
 
   provideLine(text: string): void {
@@ -184,6 +214,18 @@ class BridgeIO implements IOAdapter {
   }
 }
 
+function formatEngineError(err: unknown): Error {
+  const raw = err instanceof Error ? err.message : String(err)
+  if (/out of bounds/i.test(raw)) {
+    return new Error(
+      `${raw}. This usually means the story file is truncated, corrupt, or not raw Z-code ` +
+        `(e.g. a partial download or a Blorb/zip renamed to .z5). ` +
+        'Re-import a complete raw .z3–.z8 file, or start a New Game if Continue used a bad save.',
+    )
+  }
+  return err instanceof Error ? err : new Error(raw)
+}
+
 interface SerializedSave {
   magic: typeof SAVE_MAGIC
   pc: number
@@ -215,31 +257,50 @@ function signed16(n: number): number {
  * Find the player object among children of the current location.
  * Heuristic: short name matches you/cretin/yourself/player; fallback first child.
  */
+function safeObjectName(zm: ZMachine, obj: number): string {
+  if (!Number.isFinite(obj) || obj <= 0 || obj > MAX_OBJECT_NUM) return ''
+  try {
+    return zm.getObjectName(obj).trim()
+  } catch {
+    // Corrupt property tables / bad object numbers must not crash a turn.
+    return ''
+  }
+}
+
 function findPlayerObject(zm: ZMachine, locationObj: number): number {
   if (locationObj <= 0) return 0
-  const matches: number[] = []
-  let child = zm.objectTable.getChild(locationObj)
-  while (child) {
-    const name = zm.getObjectName(child).trim()
-    if (PLAYER_NAME_RE.test(name)) {
-      matches.push(child)
+  try {
+    const matches: number[] = []
+    let child = zm.objectTable.getChild(locationObj)
+    let guard = 0
+    while (child && guard++ < 512) {
+      const name = safeObjectName(zm, child)
+      if (PLAYER_NAME_RE.test(name)) {
+        matches.push(child)
+      }
+      child = zm.objectTable.getSibling(child)
     }
-    child = zm.objectTable.getSibling(child)
+    if (matches.length >= 1) return matches[0]!
+    // Fallback: first child of location (often the player in Infocom V3)
+    return zm.objectTable.getChild(locationObj) || 0
+  } catch {
+    return 0
   }
-  if (matches.length === 1) return matches[0]!
-  if (matches.length > 1) return matches[0]!
-  // Fallback: first child of location (often the player in Infocom V3)
-  return zm.objectTable.getChild(locationObj) || 0
 }
 
 function inventoryOf(zm: ZMachine, playerObj: number): InventoryItem[] {
   if (playerObj <= 0) return []
   const items: InventoryItem[] = []
-  let child = zm.objectTable.getChild(playerObj)
-  while (child) {
-    const name = zm.getObjectName(child).trim() || `object-${child}`
-    items.push({ id: String(child), name })
-    child = zm.objectTable.getSibling(child)
+  try {
+    let child = zm.objectTable.getChild(playerObj)
+    let guard = 0
+    while (child && guard++ < 512) {
+      const name = safeObjectName(zm, child) || `object-${child}`
+      items.push({ id: String(child), name })
+      child = zm.objectTable.getSibling(child)
+    }
+  } catch {
+    /* leave empty */
   }
   return items
 }
@@ -250,49 +311,84 @@ function buildWorld(zm: ZMachine, io: BridgeIO): {
   exits: ExitInfo[]
   status: TurnSnapshot['status']
 } {
-  // Global 0 / var 16 = location object (Infocom convention)
-  const locationObj = zm.variables.read(16)
-  let locationName =
-    locationObj > 0 ? zm.getObjectName(locationObj).trim() : ''
-  if (!locationName && io.lastStatus?.location) {
-    locationName = io.lastStatus.location
-  }
-  if (!locationName) locationName = 'Unknown'
+  try {
+    // Global 0 / var 16 = location object (Infocom convention)
+    let locationObj = 0
+    try {
+      locationObj = zm.variables.read(16)
+    } catch {
+      locationObj = 0
+    }
 
-  const scoreRaw = zm.variables.read(17)
-  const movesRaw = zm.variables.read(18)
-  const score = signed16(scoreRaw)
-  const moves = movesRaw
+    let locationName =
+      locationObj > 0 ? safeObjectName(zm, locationObj) : ''
+    if (!locationName && io.lastStatus?.location) {
+      locationName = io.lastStatus.location
+    }
+    if (!locationName) locationName = 'Unknown'
 
-  const status: TurnSnapshot['status'] = {
-    locationName,
-  }
-  // Time games use hours/minutes in globals 1/2
-  const isTime =
-    io.lastStatus?.isTime ?? (zm.header.flags1 & 0x02) !== 0
-  if (isTime) {
-    status.hours = score
-    status.minutes = moves
-  } else {
-    status.score = score
-    status.moves = moves
-  }
+    let scoreRaw = 0
+    let movesRaw = 0
+    try {
+      scoreRaw = zm.variables.read(17)
+      movesRaw = zm.variables.read(18)
+    } catch {
+      /* keep zeros */
+    }
+    const score = signed16(scoreRaw)
+    const moves = movesRaw
 
-  const playerObj = findPlayerObject(zm, locationObj)
-  const inventory = inventoryOf(zm, playerObj)
+    const status: TurnSnapshot['status'] = {
+      locationName,
+    }
+    // Time games use hours/minutes in globals 1/2
+    let isTime = false
+    try {
+      isTime = io.lastStatus?.isTime ?? (zm.header.flags1 & 0x02) !== 0
+    } catch {
+      isTime = Boolean(io.lastStatus?.isTime)
+    }
+    if (isTime) {
+      status.hours = score
+      status.minutes = moves
+    } else {
+      status.score = score
+      status.moves = moves
+    }
 
-  // Exits: not reliably available from the object tree without game-specific
-  // knowledge; leave empty and let UI map learn from movement (Task 7+).
-  const exits: ExitInfo[] = []
+    const playerObj = findPlayerObject(zm, locationObj)
+    const inventory = inventoryOf(zm, playerObj)
 
-  return {
-    location: {
-      id: locationObj > 0 ? String(locationObj) : 'unknown',
-      name: locationName,
-    },
-    inventory,
-    exits,
-    status,
+    // Exits: not reliably available from the object tree without game-specific
+    // knowledge; leave empty and let UI map learn from movement.
+    const exits: ExitInfo[] = []
+
+    return {
+      location: {
+        id: locationObj > 0 ? String(locationObj) : 'unknown',
+        name: locationName,
+      },
+      inventory,
+      exits,
+      status,
+    }
+  } catch {
+    // Never let world-view extraction kill a playable turn.
+    return {
+      location: {
+        id: 'unknown',
+        name: io.lastStatus?.location || 'Unknown',
+      },
+      inventory: [],
+      exits: [],
+      status: {
+        locationName: io.lastStatus?.location || 'Unknown',
+        score: io.lastStatus && !io.lastStatus.isTime ? io.lastStatus.score : undefined,
+        moves: io.lastStatus && !io.lastStatus.isTime ? io.lastStatus.turns : undefined,
+        hours: io.lastStatus?.isTime ? io.lastStatus.score : undefined,
+        minutes: io.lastStatus?.isTime ? io.lastStatus.turns : undefined,
+      },
+    }
   }
 }
 
@@ -339,30 +435,44 @@ export function createZvmAdapter(): ZMachineAdapter {
     return lastSnapshot
   }
 
-  function startRun(machine: ZMachine): void {
+  function startRun(machine: ZMachine, bridge: BridgeIO, bootGen: number): void {
     void machine.run().catch((err: unknown) => {
       // Abandoning a machine (restore/reload) may leave a rejected run; ignore.
-      if (generation === 0) return
-      console.error('[zvmAdapter] engine run error', err)
+      if (bootGen !== generation) return
+      const formatted = formatEngineError(err)
+      console.error('[zvmAdapter] engine run error', formatted)
+      bridge.failPending(formatted)
     })
   }
 
   function bootMachine(data: Uint8Array): void {
     generation += 1
+    const bootGen = generation
     storyBytes = data.slice()
     io = new BridgeIO()
-    zm = ZMachine.load(data, io)
-    startRun(zm)
+    try {
+      zm = ZMachine.load(data, io)
+    } catch (err) {
+      throw formatEngineError(err)
+    }
+    startRun(zm, io, bootGen)
   }
 
   return {
     async load(story: ArrayBuffer): Promise<TurnSnapshot> {
       const data = new Uint8Array(story)
-      if (data.byteLength < 64) {
-        throw new Error('Story file too small to be valid Z-code')
+      try {
+        validateStoryBytes(data)
+      } catch (err) {
+        if (err instanceof StoryValidationError) throw err
+        throw err
       }
       bootMachine(data)
-      return settleAfterInput()
+      try {
+        return await settleAfterInput()
+      } catch (err) {
+        throw formatEngineError(err)
+      }
     },
 
     async submit(line: string): Promise<TurnSnapshot> {
@@ -377,7 +487,11 @@ export function createZvmAdapter(): ZMachineAdapter {
       } else {
         bridge.provideLine(line)
       }
-      return settleAfterInput()
+      try {
+        return await settleAfterInput()
+      } catch (err) {
+        throw formatEngineError(err)
+      }
     },
 
     async save(): Promise<ArrayBuffer> {
@@ -411,10 +525,25 @@ export function createZvmAdapter(): ZMachineAdapter {
       // Build a fresh VM, apply dynamic RAM + stack + PC, then run from the
       // saved PC (typically the mid-turn sread). No intro boot needed.
       generation += 1
+      const bootGen = generation
       const story = new Uint8Array(payload.storyBytes)
+      try {
+        validateStoryBytes(story)
+      } catch (err) {
+        if (err instanceof StoryValidationError) {
+          throw new Error(
+            `Save embeds an invalid story: ${err.message}`,
+          )
+        }
+        throw err
+      }
       storyBytes = story.slice()
       io = new BridgeIO()
-      zm = ZMachine.load(story, io)
+      try {
+        zm = ZMachine.load(story, io)
+      } catch (err) {
+        throw formatEngineError(err)
+      }
 
       const staticBase = Math.min(
         payload.staticBase,
@@ -427,8 +556,12 @@ export function createZvmAdapter(): ZMachineAdapter {
       zm.stack.deserialize(payload.stack)
       ;(zm as unknown as { _pc: number })._pc = payload.pc
 
-      startRun(zm)
-      return settleAfterInput()
+      startRun(zm, io, bootGen)
+      try {
+        return await settleAfterInput()
+      } catch (err) {
+        throw formatEngineError(err)
+      }
     },
 
     getSnapshot(): TurnSnapshot {
