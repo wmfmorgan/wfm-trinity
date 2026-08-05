@@ -262,30 +262,38 @@ function safeObjectName(zm: ZMachine, obj: number): string {
   try {
     return zm.getObjectName(obj).trim()
   } catch {
-    // Corrupt property tables / bad object numbers must not crash a turn.
+    // Invalid object numbers must not crash a turn (e.g. garbage in globals).
     return ''
   }
 }
 
-function findPlayerObject(zm: ZMachine, locationObj: number): number {
-  if (locationObj <= 0) return 0
-  try {
-    const matches: number[] = []
-    let child = zm.objectTable.getChild(locationObj)
-    let guard = 0
-    while (child && guard++ < 512) {
-      const name = safeObjectName(zm, child)
-      if (PLAYER_NAME_RE.test(name)) {
-        matches.push(child)
+/** True when obj looks like a real object table entry with a readable name. */
+function isReadableObject(zm: ZMachine, obj: number): boolean {
+  return safeObjectName(zm, obj).length > 0
+}
+
+/**
+ * Scan the object table for the player. Prefer names like "yourself"/"cretin".
+ * Cap the scan so huge V5/V8 tables stay cheap.
+ */
+function findPlayerObject(zm: ZMachine): number {
+  const maxScan = zm.header.version <= 3 ? 255 : 2000
+  let fallback = 0
+  for (let n = 1; n <= maxScan; n++) {
+    const name = safeObjectName(zm, n)
+    if (!name) continue
+    if (PLAYER_NAME_RE.test(name)) {
+      // Prefer a player that currently has a parent (in-world), not a prototype.
+      try {
+        const parent = zm.objectTable.getParent(n)
+        if (parent > 0 && isReadableObject(zm, parent)) return n
+      } catch {
+        /* keep scanning */
       }
-      child = zm.objectTable.getSibling(child)
+      if (!fallback) fallback = n
     }
-    if (matches.length >= 1) return matches[0]!
-    // Fallback: first child of location (often the player in Infocom V3)
-    return zm.objectTable.getChild(locationObj) || 0
-  } catch {
-    return 0
   }
+  return fallback
 }
 
 function inventoryOf(zm: ZMachine, playerObj: number): InventoryItem[] {
@@ -305,6 +313,50 @@ function inventoryOf(zm: ZMachine, playerObj: number): InventoryItem[] {
   return items
 }
 
+/**
+ * Resolve current location.
+ *
+ * Prefer parent-of-player (works for Trinity and most Infocom titles).
+ * Fall back to Infocom G00 (var 16) only when it is a readable object number —
+ * some games leave non-object values in that global and getObjectName OOB-crashes.
+ */
+function resolveLocation(
+  zm: ZMachine,
+  io: BridgeIO,
+  playerObj: number,
+): { id: string; name: string } {
+  // 1) Parent of player
+  if (playerObj > 0) {
+    try {
+      const parent = zm.objectTable.getParent(playerObj)
+      const name = safeObjectName(zm, parent)
+      if (parent > 0 && name) {
+        return { id: String(parent), name }
+      }
+    } catch {
+      /* try next strategy */
+    }
+  }
+
+  // 2) Classic Infocom global 0 / variable 16 — only if it names a real object
+  try {
+    const g0 = zm.variables.read(16)
+    const name = safeObjectName(zm, g0)
+    if (g0 > 0 && name) {
+      return { id: String(g0), name }
+    }
+  } catch {
+    /* try next */
+  }
+
+  // 3) Status line from @show_status if the game called it
+  if (io.lastStatus?.location) {
+    return { id: 'status', name: io.lastStatus.location }
+  }
+
+  return { id: 'unknown', name: 'Unknown' }
+}
+
 function buildWorld(zm: ZMachine, io: BridgeIO): {
   location: { id: string; name: string }
   inventory: InventoryItem[]
@@ -312,20 +364,9 @@ function buildWorld(zm: ZMachine, io: BridgeIO): {
   status: TurnSnapshot['status']
 } {
   try {
-    // Global 0 / var 16 = location object (Infocom convention)
-    let locationObj = 0
-    try {
-      locationObj = zm.variables.read(16)
-    } catch {
-      locationObj = 0
-    }
-
-    let locationName =
-      locationObj > 0 ? safeObjectName(zm, locationObj) : ''
-    if (!locationName && io.lastStatus?.location) {
-      locationName = io.lastStatus.location
-    }
-    if (!locationName) locationName = 'Unknown'
+    const playerObj = findPlayerObject(zm)
+    const location = resolveLocation(zm, io, playerObj)
+    const inventory = inventoryOf(zm, playerObj)
 
     let scoreRaw = 0
     let movesRaw = 0
@@ -339,9 +380,8 @@ function buildWorld(zm: ZMachine, io: BridgeIO): {
     const moves = movesRaw
 
     const status: TurnSnapshot['status'] = {
-      locationName,
+      locationName: location.name,
     }
-    // Time games use hours/minutes in globals 1/2
     let isTime = false
     try {
       isTime = io.lastStatus?.isTime ?? (zm.header.flags1 & 0x02) !== 0
@@ -356,18 +396,11 @@ function buildWorld(zm: ZMachine, io: BridgeIO): {
       status.moves = moves
     }
 
-    const playerObj = findPlayerObject(zm, locationObj)
-    const inventory = inventoryOf(zm, playerObj)
-
-    // Exits: not reliably available from the object tree without game-specific
-    // knowledge; leave empty and let UI map learn from movement.
+    // Exits not portable from object tree; map learns from movement.
     const exits: ExitInfo[] = []
 
     return {
-      location: {
-        id: locationObj > 0 ? String(locationObj) : 'unknown',
-        name: locationName,
-      },
+      location,
       inventory,
       exits,
       status,
@@ -415,15 +448,13 @@ export function createZvmAdapter(): ZMachineAdapter {
     return { io, zm }
   }
 
-  async function settleAfterInput(): Promise<TurnSnapshot> {
+  async function settleOnce(): Promise<TurnSnapshot> {
     const { io: bridge, zm: machine } = assertReady()
     const gen = generation
     await bridge.waitUntilInputRequested()
     if (gen !== generation) {
-      // Restored / reloaded while waiting — return current snapshot
       return lastSnapshot
     }
-    // Tiny yield so any trailing print after the input request is flushed
     await Promise.resolve()
     const transcriptDelta = bridge.takeLowerOutput()
     const world = buildWorld(machine, bridge)
@@ -433,6 +464,32 @@ export function createZvmAdapter(): ZMachineAdapter {
       waitingFor: waitingForFrom(bridge, machine),
     }
     return lastSnapshot
+  }
+
+  /**
+   * Wait for input and build a snapshot. On load, Infocom titles like Trinity
+   * first ask "[Press any key to begin.]" — auto-dismiss a few char prompts
+   * so the player lands on a normal line prompt with a real location.
+   */
+  async function settleAfterInput(opts?: {
+    autoSkipCharPrompts?: boolean
+  }): Promise<TurnSnapshot> {
+    const autoSkip = opts?.autoSkipCharPrompts === true
+    let snapshot = await settleOnce()
+    if (!autoSkip) return snapshot
+
+    // Auto-dismiss up to a few char-input splash prompts (key to begin, etc.)
+    for (let i = 0; i < 4 && snapshot.waitingFor === 'char'; i++) {
+      const { io: bridge } = assertReady()
+      bridge.takeLowerOutput()
+      bridge.provideChar(13) // Return / any key
+      const next = await settleOnce()
+      // Accumulate splash text into the opening transcript
+      next.transcriptDelta = snapshot.transcriptDelta + next.transcriptDelta
+      snapshot = next
+      lastSnapshot = snapshot
+    }
+    return snapshot
   }
 
   function startRun(machine: ZMachine, bridge: BridgeIO, bootGen: number): void {
@@ -469,7 +526,7 @@ export function createZvmAdapter(): ZMachineAdapter {
       }
       bootMachine(data)
       try {
-        return await settleAfterInput()
+        return await settleAfterInput({ autoSkipCharPrompts: true })
       } catch (err) {
         throw formatEngineError(err)
       }
@@ -481,8 +538,9 @@ export function createZvmAdapter(): ZMachineAdapter {
       bridge.takeLowerOutput()
       const kind = bridge.getWaitingKind()
       if (kind === 'char') {
-        // For single-char prompts (e.g. "Quit? (Y/N)"), use first character
-        const ch = line.trim().charAt(0) || '\n'
+        // Char prompts: "[Press any key]", "Quit? (Y/N)". Enter alone = Return.
+        const trimmed = line.trim()
+        const ch = trimmed.charAt(0) || '\n'
         bridge.provideChar(ch === '\n' ? 13 : ch.charCodeAt(0))
       } else {
         bridge.provideLine(line)
@@ -558,7 +616,8 @@ export function createZvmAdapter(): ZMachineAdapter {
 
       startRun(zm, io, bootGen)
       try {
-        return await settleAfterInput()
+        // Restores usually land on a line prompt; still skip a stray char splash.
+        return await settleAfterInput({ autoSkipCharPrompts: true })
       } catch (err) {
         throw formatEngineError(err)
       }

@@ -17,10 +17,23 @@ describe('zvmAdapter (real engine)', () => {
     const a = createZvmAdapter()
     const s0 = await a.load(loadStoryBytes())
     expect(s0.transcriptDelta.length).toBeGreaterThan(0)
+    // After load we auto-skip splash char prompts (e.g. Trinity "press any key")
+    // so a normal line prompt is ready.
     expect(s0.waitingFor).toBe('line')
-    // Mini-Zork / Infocom openers usually mention a house or location
     expect(s0.location.name.length).toBeGreaterThan(0)
     expect(s0.location.name).not.toBe('Unknown')
+  })
+
+  itor('Trinity opens at Palace Gate without OOB crash', async () => {
+    // Only meaningful when STORY_FILE points at Trinity; still valid for Mini-Zork.
+    const a = createZvmAdapter()
+    const s0 = await a.load(loadStoryBytes())
+    expect(s0.waitingFor).toBe('line')
+    expect(s0.location.name.length).toBeGreaterThan(0)
+    // Must not throw on world extract after a move
+    const s1 = await a.submit('look')
+    expect(s1.waitingFor).toBe('line')
+    expect(s1.location.name.length).toBeGreaterThan(0)
   })
 
   itor('submit look produces more transcript', async () => {
