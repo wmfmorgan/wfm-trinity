@@ -28,15 +28,19 @@ interface Camera {
   /** World-space center of the viewport */
   x: number
   y: number
-  /** Zoom scale (1 = 1 world unit per CSS pixel) */
+  /** Zoom scale (higher = zoomed in) */
   k: number
 }
 
-const MIN_K = 0.4
-const MAX_K = 2.5
-const NODE_W = 56
-const NODE_H = 28
-const STUB_LEN = 28
+/** Zoom range — wide enough for pan/explore and reading long room names. */
+export const MIN_K = 0.35
+export const MAX_K = 5
+const ZOOM_STEP = 1.25
+
+/** Room box size in world units (fits 2-line labels without spill). */
+export const NODE_W = 96
+export const NODE_H = 44
+const STUB_LEN = 32
 const EDGE_PAD = 4
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -92,9 +96,30 @@ function edgeKey(e: MapEdge, i: number): string {
   return `${e.fromId}->${e.toId}:${e.dir ?? '?'}:${i}`
 }
 
-function truncateLabel(name: string, max = 12): string {
-  if (name.length <= max) return name
-  return name.slice(0, max - 1) + '…'
+/**
+ * Zoom camera by a multiplicative factor, keeping a screen-fraction point fixed
+ * in world space (sx/sy in 0..1 of the viewport).
+ */
+function zoomCamera(
+  c: Camera,
+  size: { w: number; h: number },
+  factor: number,
+  sx = 0.5,
+  sy = 0.5,
+): Camera {
+  const curVbW = size.w / c.k
+  const curVbH = size.h / c.k
+  const worldX = c.x - curVbW / 2 + sx * curVbW
+  const worldY = c.y - curVbH / 2 + sy * curVbH
+  const newK = clamp(c.k * factor, MIN_K, MAX_K)
+  if (newK === c.k) return c
+  const newVbW = size.w / newK
+  const newVbH = size.h / newK
+  return {
+    x: worldX - sx * newVbW + newVbW / 2,
+    y: worldY - sy * newVbH + newVbH / 2,
+    k: newK,
+  }
 }
 
 export function MapView({
@@ -150,22 +175,9 @@ export function MapView({
       const r = el.getBoundingClientRect()
       const sx = r.width > 0 ? (e.clientX - r.left) / r.width : 0.5
       const sy = r.height > 0 ? (e.clientY - r.top) / r.height : 0.5
-      setCamera((c) => {
-        const curVbW = size.w / c.k
-        const curVbH = size.h / c.k
-        const worldX = c.x - curVbW / 2 + sx * curVbW
-        const worldY = c.y - curVbH / 2 + sy * curVbH
-        const factor = Math.exp(-e.deltaY * 0.0015)
-        const newK = clamp(c.k * factor, MIN_K, MAX_K)
-        if (newK === c.k) return c
-        const newVbW = size.w / newK
-        const newVbH = size.h / newK
-        return {
-          x: worldX - sx * newVbW + newVbW / 2,
-          y: worldY - sy * newVbH + newVbH / 2,
-          k: newK,
-        }
-      })
+      // Trackpad pinch often reports ctrlKey; still treat as zoom
+      const factor = Math.exp(-e.deltaY * 0.002)
+      setCamera((c) => zoomCamera(c, size, factor, sx, sy))
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
@@ -181,15 +193,24 @@ export function MapView({
     onRecenter?.()
   }, [graph.nodes, currentRoomId, onRecenter])
 
+  const zoomBy = useCallback(
+    (factor: number) => {
+      setCamera((c) => zoomCamera(c, size, factor, 0.5, 0.5))
+    },
+    [size],
+  )
+
   const vbW = size.w / camera.k
   const vbH = size.h / camera.k
   const viewBox = `${camera.x - vbW / 2} ${camera.y - vbH / 2} ${vbW} ${vbH}`
 
   const nodes = Object.values(graph.nodes)
   const isEmpty = nodes.length === 0
+  const zoomPct = Math.round(camera.k * 100)
+  const canZoomIn = camera.k < MAX_K - 1e-6
+  const canZoomOut = camera.k > MIN_K + 1e-6
 
   function onPointerDown(e: ReactPointerEvent<SVGSVGElement>) {
-    // Only primary button; ignore node/button interactions via stopPropagation there
     if (e.button !== 0) return
     const target = e.target as Element
     if (target.closest('[data-room-id]')) return
@@ -210,7 +231,6 @@ export function MapView({
     const dx = e.clientX - d.startClientX
     const dy = e.clientY - d.startClientY
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) d.moved = true
-    // Screen drag right → world moves left relative to camera center
     setCamera((c) => ({
       ...c,
       x: d.startCamX - dx / c.k,
@@ -222,7 +242,6 @@ export function MapView({
     const d = dragRef.current
     if (!d || d.pointerId !== e.pointerId) return
     if (!d.moved) {
-      // Click empty background → clear selection
       onSelectRoom(null)
     }
     dragRef.current = null
@@ -249,14 +268,39 @@ export function MapView({
     <section className={styles.root} aria-label="Map">
       <header className={styles.header}>
         <span className={styles.title}>Map</span>
-        <button
-          type="button"
-          className={styles.recenterBtn}
-          onClick={recenter}
-          aria-label="Recenter map on current room"
-        >
-          Recenter
-        </button>
+        <div className={styles.toolbar}>
+          <button
+            type="button"
+            className={styles.toolBtn}
+            onClick={() => zoomBy(1 / ZOOM_STEP)}
+            disabled={!canZoomOut}
+            aria-label="Zoom out"
+            data-testid="map-zoom-out"
+          >
+            −
+          </button>
+          <span className={styles.zoomLabel} data-testid="map-zoom-label">
+            {zoomPct}%
+          </span>
+          <button
+            type="button"
+            className={styles.toolBtn}
+            onClick={() => zoomBy(ZOOM_STEP)}
+            disabled={!canZoomIn}
+            aria-label="Zoom in"
+            data-testid="map-zoom-in"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className={styles.recenterBtn}
+            onClick={recenter}
+            aria-label="Recenter map on current room"
+          >
+            Recenter
+          </button>
+        </div>
       </header>
       <div className={styles.viewport}>
         {isEmpty ? (
@@ -277,7 +321,6 @@ export function MapView({
           aria-label="Game map"
           data-zoom={camera.k.toFixed(2)}
         >
-          {/* Edges */}
           <g className={styles.edges} aria-hidden>
             {graph.edges.map((e, i) => {
               const a = graph.nodes[e.fromId]
@@ -296,7 +339,6 @@ export function MapView({
             })}
           </g>
 
-          {/* Exit stubs from current room */}
           {currentNode && stubs.length > 0 ? (
             <g className={styles.stubs} aria-hidden>
               {stubs.map((ex) => {
@@ -323,11 +365,11 @@ export function MapView({
             </g>
           ) : null}
 
-          {/* Room nodes */}
           <g className={styles.nodes}>
             {nodes.map((node) => {
               const isCurrent = node.id === currentRoomId
               const isSelected = node.id === selectedRoomId
+              const label = node.name || node.id
               const classNames = [
                 styles.node,
                 isCurrent ? styles.current : '',
@@ -348,8 +390,8 @@ export function MapView({
                   tabIndex={0}
                   aria-label={
                     isCurrent
-                      ? `Current room: ${node.name}`
-                      : `Room: ${node.name}`
+                      ? `Current room: ${label}`
+                      : `Room: ${label}`
                   }
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -358,24 +400,36 @@ export function MapView({
                     }
                   }}
                 >
+                  <title>{label}</title>
                   <rect
                     x={-NODE_W / 2}
                     y={-NODE_H / 2}
                     width={NODE_W}
                     height={NODE_H}
-                    rx={4}
-                    ry={4}
+                    rx={5}
+                    ry={5}
                     className={styles.nodeRect}
                   />
-                  <text
-                    className={styles.nodeLabel}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    y={1}
+                  {/*
+                    foreignObject + CSS clamps long names inside the box.
+                    Full name remains in <title> and aria-label.
+                  */}
+                  <foreignObject
+                    x={-NODE_W / 2}
+                    y={-NODE_H / 2}
+                    width={NODE_W}
+                    height={NODE_H}
+                    className={styles.labelForeign}
                   >
-                    {truncateLabel(node.name || node.id)}
-                  </text>
-                  <title>{node.name || node.id}</title>
+                    <div
+                      // Required for HTML inside SVG foreignObject (React typing omits xmlns on div)
+                      {...{ xmlns: 'http://www.w3.org/1999/xhtml' }}
+                      className={styles.labelBox}
+                      title={label}
+                    >
+                      <span className={styles.labelText}>{label}</span>
+                    </div>
+                  </foreignObject>
                 </g>
               )
             })}

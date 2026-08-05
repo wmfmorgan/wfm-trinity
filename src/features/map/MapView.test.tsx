@@ -147,7 +147,7 @@ describe('MapView', () => {
     expect(container.querySelector('[data-stub-dir="east"]')).toBeTruthy()
   })
 
-  it('wheel zoom clamps between 0.4 and 2.5', () => {
+  it('wheel zoom clamps between MIN_K and MAX_K', () => {
     render(
       <MapView
         graph={oneRoom}
@@ -159,21 +159,48 @@ describe('MapView', () => {
     const svg = screen.getByRole('img', { name: 'Game map' })
 
     // Zoom in hard
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 80; i++) {
       fireEvent.wheel(svg, { deltaY: -120, clientX: 100, clientY: 100 })
     }
     let k = Number(svg.getAttribute('data-zoom'))
-    expect(k).toBeLessThanOrEqual(2.5)
-    expect(k).toBeGreaterThanOrEqual(0.4)
+    expect(k).toBeLessThanOrEqual(5)
+    expect(k).toBeGreaterThanOrEqual(0.35)
+    expect(k).toBeCloseTo(5, 0)
 
     // Zoom out hard
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 120; i++) {
       fireEvent.wheel(svg, { deltaY: 120, clientX: 100, clientY: 100 })
     }
     k = Number(svg.getAttribute('data-zoom'))
-    expect(k).toBeGreaterThanOrEqual(0.4)
-    expect(k).toBeLessThanOrEqual(2.5)
-    expect(k).toBeCloseTo(0.4, 1)
+    expect(k).toBeGreaterThanOrEqual(0.35)
+    expect(k).toBeLessThanOrEqual(5)
+    expect(k).toBeCloseTo(0.35, 1)
+  })
+
+  it('zoom in button increases zoom and long room names stay in the tree', async () => {
+    const user = userEvent.setup()
+    const graph = graphWithRooms([
+      { id: 'drive', name: 'Driveway Entrance', x: 0, y: 0 },
+    ])
+    render(
+      <MapView
+        graph={graph}
+        currentRoomId="drive"
+        exits={[]}
+        onSelectRoom={vi.fn()}
+      />,
+    )
+    const svg = screen.getByRole('img', { name: 'Game map' })
+    const before = Number(svg.getAttribute('data-zoom'))
+    await user.click(screen.getByRole('button', { name: /Zoom in/i }))
+    const after = Number(svg.getAttribute('data-zoom'))
+    expect(after).toBeGreaterThan(before)
+    // Full name is available (aria + title path), not truncated mid-box spill
+    expect(
+      screen.getByRole('button', { name: /Current room: Driveway Entrance/i }),
+    ).toBeInTheDocument()
+    // Label may appear in both visible text and title attributes
+    expect(screen.getAllByText('Driveway Entrance').length).toBeGreaterThan(0)
   })
 
   it('recenter button centers camera and calls onRecenter', async () => {

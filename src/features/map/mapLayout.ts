@@ -1,7 +1,8 @@
 import type { Direction } from '../../domain/types'
 import { deltaForDir } from '../../domain/directions'
 
-export const DEFAULT_CELL_SIZE = 80
+/** Grid spacing between rooms — keep larger than MapView NODE_W so labels don't collide. */
+export const DEFAULT_CELL_SIZE = 120
 
 /** Preferred placement relative to previous room for a move direction. */
 export function preferredPosition(

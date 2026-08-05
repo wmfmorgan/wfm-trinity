@@ -36,6 +36,56 @@
   text-shadow: 0 0 6px rgba(51, 255, 102, 0.3);
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.toolBtn {
+  appearance: none;
+  border: 1px solid var(--crt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--crt-fg);
+  font-family: var(--crt-font);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolBtn:hover:not(:disabled) {
+  color: var(--crt-fg-bright);
+  border-color: var(--crt-fg-dim);
+  background: rgba(51, 255, 102, 0.08);
+}
+
+.toolBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.toolBtn:focus-visible {
+  outline: 2px solid var(--crt-fg);
+  outline-offset: 2px;
+}
+
+.zoomLabel {
+  min-width: 2.75rem;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--crt-fg-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
 .recenterBtn {
   appearance: none;
   border: 1px solid var(--crt-border);
@@ -132,12 +182,41 @@
   vector-effect: non-scaling-stroke;
 }
 
-.nodeLabel {
-  fill: var(--crt-fg);
-  font-family: var(--crt-font);
-  font-size: 9px;
+/* Label: stay fully inside the rect (2-line clamp + ellipsis) */
+.labelForeign {
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.labelBox {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 5px;
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
+}
+
+.labelText {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-align: center;
+  color: var(--crt-fg);
+  font-family: var(--crt-font);
+  font-size: 10px;
+  line-height: 1.15;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .current .nodeRect {
@@ -148,8 +227,8 @@
   animation: pulse 2.4s ease-in-out infinite;
 }
 
-.current .nodeLabel {
-  fill: var(--crt-fg-bright);
+.current .labelText {
+  color: var(--crt-fg-bright);
   font-weight: 600;
 }
 
