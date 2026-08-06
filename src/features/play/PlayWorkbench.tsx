@@ -6,7 +6,10 @@ import { FeeliesStrip } from '../feelies/FeeliesStrip'
 import { useLibraryStore } from '../library/libraryStore'
 import { MapView } from '../map/MapView'
 import { SaveModal } from '../saves/SaveModal'
-import { InventoryPanel } from './InventoryPanel'
+import {
+  InventoryPanel,
+  readStoredInventoryCollapsed,
+} from './InventoryPanel'
 import { usePlayStore } from './playStore'
 import { StatusBar } from './StatusBar'
 import { Terminal } from './Terminal'
@@ -40,6 +43,10 @@ export function PlayWorkbench() {
   const [savesOpen, setSavesOpen] = useState(false)
   /** Local responsive tab state (medium: play|map; narrow: play|map|inv|more). */
   const [pane, setPane] = useState<WorkbenchPane>('play')
+  /** Drives grid column width so terminal/map reclaim space when inventory folds. */
+  const [inventoryCollapsed, setInventoryCollapsed] = useState(() =>
+    readStoredInventoryCollapsed(false),
+  )
 
   const isNarrow = useMediaQuery('(max-width: 720px)')
   const isMedium = useMediaQuery('(max-width: 1100px)')
@@ -199,6 +206,7 @@ export function PlayWorkbench() {
       data-testid="play-workbench"
       data-breakpoint={breakpoint}
       data-pane={pane}
+      data-inventory-collapsed={inventoryCollapsed ? 'true' : 'false'}
     >
       <div className={styles.scanlines} aria-hidden="true" />
 
@@ -283,6 +291,8 @@ export function PlayWorkbench() {
             items={snapshot.inventory}
             onInsert={onInsert}
             onExamine={onExamine}
+            collapsed={inventoryCollapsed}
+            onCollapsedChange={setInventoryCollapsed}
           />
         </div>
       </aside>

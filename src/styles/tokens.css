@@ -15,6 +15,7 @@
   --crt-glow-strong: 0 0 8px rgba(51, 255, 102, 0.4);
   --crt-panel-glow: 0 0 12px rgba(51, 255, 102, 0.08);
   --rail-width: 13.75rem; /* 220px at 16px root */
+  --rail-collapsed-width: 2.75rem; /* thin strip when inventory folded */
   --map-min-width: 17.5rem;
   --status-height: 2.5rem;
   --feelies-height: 3.5rem;

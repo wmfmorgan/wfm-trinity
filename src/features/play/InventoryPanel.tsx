@@ -14,11 +14,12 @@ export interface InventoryPanelProps {
 }
 
 const CLICK_DELAY_MS = 280
-const STORAGE_KEY = 'infocom-workbench.inventoryCollapsed'
+export const INVENTORY_COLLAPSED_STORAGE_KEY =
+  'infocom-workbench.inventoryCollapsed'
 
-function readStoredCollapsed(fallback: boolean): boolean {
+export function readStoredInventoryCollapsed(fallback = false): boolean {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(INVENTORY_COLLAPSED_STORAGE_KEY)
     if (raw === '1') return true
     if (raw === '0') return false
   } catch {
@@ -29,7 +30,7 @@ function readStoredCollapsed(fallback: boolean): boolean {
 
 function writeStoredCollapsed(collapsed: boolean): void {
   try {
-    localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
+    localStorage.setItem(INVENTORY_COLLAPSED_STORAGE_KEY, collapsed ? '1' : '0')
   } catch {
     /* ignore */
   }
@@ -47,7 +48,7 @@ export function InventoryPanel({
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [internalCollapsed, setInternalCollapsed] = useState(() =>
     collapsedProp === undefined
-      ? readStoredCollapsed(defaultCollapsed)
+      ? readStoredInventoryCollapsed(defaultCollapsed)
       : defaultCollapsed,
   )
 
@@ -57,8 +58,8 @@ export function InventoryPanel({
   function setCollapsed(next: boolean) {
     if (collapsedProp === undefined) {
       setInternalCollapsed(next)
-      writeStoredCollapsed(next)
     }
+    writeStoredCollapsed(next)
     onCollapsedChange?.(next)
   }
 
@@ -102,7 +103,7 @@ export function InventoryPanel({
           data-testid="inventory-toggle"
         >
           <span className={styles.panelHeaderTitle}>
-            Inventory{countLabel}
+            {collapsed ? `Inv${countLabel}` : `Inventory${countLabel}`}
           </span>
           <span className={styles.panelChevron} aria-hidden>
             {collapsed ? '▸' : '▾'}

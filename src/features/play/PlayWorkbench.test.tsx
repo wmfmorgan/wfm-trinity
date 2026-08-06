@@ -94,6 +94,22 @@ describe('PlayWorkbench', () => {
     expect(screen.getByText(/You are in the Woods/i)).toBeInTheDocument()
   })
 
+  it('collapsing inventory marks workbench so layout can reclaim rail width', async () => {
+    const user = userEvent.setup()
+    const gameId = await seedGame('workbench-inv-collapse')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    render(<PlayWorkbench />)
+    const root = screen.getByTestId('play-workbench')
+    expect(root).toHaveAttribute('data-inventory-collapsed', 'false')
+
+    await user.click(screen.getByTestId('inventory-toggle'))
+    expect(root).toHaveAttribute('data-inventory-collapsed', 'true')
+
+    await user.click(screen.getByTestId('inventory-toggle'))
+    expect(root).toHaveAttribute('data-inventory-collapsed', 'false')
+  })
+
   it('map room select only updates selectedRoomId (does not walk)', async () => {
     const user = userEvent.setup()
     const gameId = await seedGame('workbench-map-select')

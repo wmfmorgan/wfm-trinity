@@ -60,12 +60,14 @@ describe('InventoryPanel', () => {
 
   it('collapses and expands via header toggle', async () => {
     const user = userEvent.setup()
+    const onCollapsedChange = vi.fn()
     render(
       <InventoryPanel
         items={[LAMP]}
         onInsert={vi.fn()}
         onExamine={vi.fn()}
         defaultCollapsed={false}
+        onCollapsedChange={onCollapsedChange}
       />,
     )
 
@@ -75,14 +77,17 @@ describe('InventoryPanel', () => {
 
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(onCollapsedChange).toHaveBeenCalledWith(true)
     expect(screen.queryByRole('button', { name: 'brass lamp' })).not.toBeInTheDocument()
     expect(screen.getByTestId('inventory-panel')).toHaveAttribute(
       'data-collapsed',
       'true',
     )
+    expect(toggle).toHaveTextContent(/Inv \(1\)/)
 
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(onCollapsedChange).toHaveBeenCalledWith(false)
     expect(screen.getByRole('button', { name: 'brass lamp' })).toBeInTheDocument()
   })
 

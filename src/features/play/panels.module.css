@@ -27,8 +27,40 @@
   text-shadow: var(--crt-glow);
 }
 
+.panelCollapsed {
+  height: 100%;
+}
+
 .panelCollapsed .panelHeader {
   border-bottom: none;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 0.35rem 0.2rem;
+}
+
+.panelCollapsed .panelHeaderToggle {
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 0;
+  padding: 0.35rem 0.15rem;
+}
+
+.panelCollapsed .panelHeaderTitle {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  max-height: 100%;
+}
+
+.panelCollapsed .panelChevron {
+  order: -1;
 }
 
 .panelHeaderToggle {

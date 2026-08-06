@@ -19,6 +19,16 @@
   font-family: var(--crt-font);
   position: relative;
   overflow: hidden;
+  transition: grid-template-columns 160ms ease;
+}
+
+/* Collapsed inventory: thin strip — terminal + map take the freed width */
+.root[data-inventory-collapsed='true'] {
+  grid-template:
+    'status status status' minmax(var(--status-height), auto)
+    'left terminal map' 1fr
+    'feelies feelies feelies' var(--feelies-height)
+    / var(--rail-collapsed-width) 1fr minmax(var(--map-min-width), 40%);
 }
 
 /* Workbench-level CRT scanlines */
@@ -149,6 +159,10 @@
   z-index: 1;
 }
 
+.root[data-inventory-collapsed='true'] .left {
+  min-width: var(--rail-collapsed-width);
+}
+
 .inventory {
   flex: 1 1 auto;
   min-height: 0;
@@ -159,6 +173,11 @@
 .inventory > * {
   flex: 1;
   min-height: 0;
+}
+
+.root[data-inventory-collapsed='true'] .inventory > * {
+  flex: 1 1 auto;
+  width: 100%;
 }
 
 .terminal {
@@ -295,6 +314,15 @@
     'left main' 1fr
     'feelies feelies' var(--feelies-height)
     / var(--rail-width) 1fr;
+}
+
+.root[data-breakpoint='medium'][data-inventory-collapsed='true'] {
+  grid-template:
+    'status status' minmax(var(--status-height), auto)
+    'tabs tabs' auto
+    'left main' 1fr
+    'feelies feelies' var(--feelies-height)
+    / var(--rail-collapsed-width) 1fr;
 }
 
 .root[data-breakpoint='medium'] .tabs {
