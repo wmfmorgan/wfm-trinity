@@ -81,25 +81,32 @@ describe('saveRepo', () => {
     expect(await listSaves(gameId)).toHaveLength(1)
   })
 
-  it('returns the latest autosave by updatedAt', async () => {
+  it('prefers primary autosave slot for Continue', async () => {
     const gameId = 'game-auto'
     await putSave(
       makeSave(gameId, 'autosave', { name: 'Autosave', updatedAt: 100 }),
     )
     await putSave(
-      makeSave(gameId, 'autosave-1', { name: 'Autosave 1', updatedAt: 300 }),
-    )
-    await putSave(
-      makeSave(gameId, 'autosave-2', { name: 'Autosave 2', updatedAt: 200 }),
+      makeSave(gameId, 'autosave-room-0', {
+        name: 'Room: Woods',
+        updatedAt: 300,
+      }),
     )
     await putSave(
       makeSave(gameId, 'manual', { name: 'Manual', updatedAt: 999 }),
     )
 
+    // Continue always uses the dedicated latest slot when present
     const latest = await getLatestAutosave(gameId)
-    expect(latest?.slotId).toBe('autosave-1')
-    expect(latest?.updatedAt).toBe(300)
+    expect(latest?.slotId).toBe('autosave')
+    expect(latest?.updatedAt).toBe(100)
+
+    // Without primary, fall back to newest autosave-family slot
+    await deleteSave(gameId, 'autosave')
+    const fallback = await getLatestAutosave(gameId)
+    expect(fallback?.slotId).toBe('autosave-room-0')
 
     expect(await getLatestAutosave('missing')).toBeUndefined()
   })
 })
+
