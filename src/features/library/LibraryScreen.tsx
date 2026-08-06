@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
+import { UiScaleControl } from '../../app/UiScaleControl'
 import type { LibraryGame } from '../../domain/types'
 import { getCover } from '../../persistence/libraryRepo'
 import { getLatestAutosave } from '../../persistence/saveRepo'
@@ -205,6 +206,7 @@ export function LibraryScreen() {
           Infocom Workbench
         </h1>
         <div className={styles.headerActions}>
+          <UiScaleControl />
           <label className={styles.importLabel}>
             Import
             <input

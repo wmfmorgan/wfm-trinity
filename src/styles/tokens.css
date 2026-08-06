@@ -1,4 +1,6 @@
 :root {
+  /* Whole-UI zoom (A−/A+). Applied as html font-size so rem scales everywhere. */
+  --ui-scale: 1;
   --crt-bg: #0a0f0a;
   --crt-fg: #33ff66;
   --crt-fg-dim: #1a993d;
@@ -12,10 +14,10 @@
   --crt-glow: 0 0 6px rgba(51, 255, 102, 0.3);
   --crt-glow-strong: 0 0 8px rgba(51, 255, 102, 0.4);
   --crt-panel-glow: 0 0 12px rgba(51, 255, 102, 0.08);
-  --rail-width: 220px;
-  --map-min-width: 280px;
-  --status-height: 40px;
-  --feelies-height: 56px;
+  --rail-width: 13.75rem; /* 220px at 16px root */
+  --map-min-width: 17.5rem;
+  --status-height: 2.5rem;
+  --feelies-height: 3.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

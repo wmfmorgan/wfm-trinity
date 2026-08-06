@@ -36,6 +36,8 @@ describe('submitCommand', () => {
     expect(s.snapshot.location.name).toBe('Woods')
     expect(s.map.nodes[s.snapshot.location.id]).toBeTruthy()
     expect(s.fullTranscript.toLowerCase()).toContain('wood')
+    // Command is echoed into the transcript before game output
+    expect(s.fullTranscript).toContain('> north\n')
     expect(s.history).toEqual(['north'])
     expect(s.turn).toBe(1)
     expect(s.lastMoveDir).toBe('north')
@@ -45,6 +47,16 @@ describe('submitCommand', () => {
         (e) => e.fromId === 'meadow' && e.toId === 'woods' && e.dir === 'north',
       ),
     ).toBe(true)
+  })
+
+  it('echoes typed command before game output in transcript', async () => {
+    const adapter = createMockAdapter()
+    let s = await startNewSession('g', new ArrayBuffer(8), adapter)
+    const before = s.fullTranscript
+    s = await submitCommand(s, adapter, 'look')
+    const added = s.fullTranscript.slice(before.length)
+    expect(added.startsWith('> look\n')).toBe(true)
+    expect(added.toLowerCase()).toContain('meadow')
   })
 
   it('trims input and records trimmed line in history', async () => {

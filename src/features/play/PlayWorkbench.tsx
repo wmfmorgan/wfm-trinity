@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { UiScaleControl } from '../../app/UiScaleControl'
 import { commandForDir } from '../../domain/directions'
 import type { Direction } from '../../domain/types'
 import { COMMON_VERBS } from '../../domain/verbs'
@@ -223,6 +224,7 @@ export function PlayWorkbench() {
         <div className={styles.statusMain}>
           <StatusBar title={title} status={snapshot.status} />
         </div>
+        <UiScaleControl />
       </header>
 
       {showMediumTabs && (

@@ -21,6 +21,16 @@ export function detectMoveDir(line: string): Direction | null {
   return normalizeExitDir(line)
 }
 
+/**
+ * Format a player command for the transcript (classic IF: "> north").
+ * Empty/whitespace commands produce no echo.
+ */
+export function formatCommandEcho(line: string): string {
+  const trimmed = line.trim()
+  if (!trimmed) return ''
+  return `> ${trimmed}\n`
+}
+
 export async function startNewSession(
   gameId: string,
   story: ArrayBuffer,
@@ -96,10 +106,16 @@ export async function submitCommand(
   const history =
     trimmed.length > 0 ? [...session.history, trimmed] : session.history
 
+  // Echo the command in the transcript before game output so the log reads
+  // as a natural IF session: "> north\nYou walk north..."
+  const echo = formatCommandEcho(line)
+  const fullTranscript =
+    session.fullTranscript + echo + snapshot.transcriptDelta
+
   return {
     gameId: session.gameId,
     snapshot,
-    fullTranscript: session.fullTranscript + snapshot.transcriptDelta,
+    fullTranscript,
     map,
     history,
     turn,

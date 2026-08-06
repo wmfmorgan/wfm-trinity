@@ -1,5 +1,10 @@
 @import './tokens.css';
 
+html {
+  /* Base 16px × UI scale so rem-based UI grows with A+/A− */
+  font-size: calc(16px * var(--ui-scale, 1));
+}
+
 html,
 body,
 #root {
