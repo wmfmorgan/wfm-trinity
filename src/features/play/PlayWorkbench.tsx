@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { UiScaleControl } from '../../app/UiScaleControl'
 import { commandForDir } from '../../domain/directions'
 import { COMMON_VERBS } from '../../domain/verbs'
@@ -10,11 +10,26 @@ import {
   InventoryPanel,
   readStoredInventoryCollapsed,
 } from './InventoryPanel'
+import {
+  MAX_MAP_SHARE,
+  MAX_RAIL_WIDTH_PX,
+  MIN_MAP_SHARE,
+  MIN_RAIL_WIDTH_PX,
+  readMapShare,
+  readRailWidthPx,
+  writeMapShare,
+  writeRailWidthPx,
+} from './panelLayout'
+import { ResizeHandle } from './ResizeHandle'
 import { usePlayStore } from './playStore'
 import { StatusBar } from './StatusBar'
 import { Terminal } from './Terminal'
 import { useMediaQuery } from './useMediaQuery'
 import styles from './PlayWorkbench.module.css'
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n))
+}
 
 export type WorkbenchPane = 'play' | 'map' | 'inv' | 'more'
 
@@ -47,6 +62,13 @@ export function PlayWorkbench() {
   const [inventoryCollapsed, setInventoryCollapsed] = useState(() =>
     readStoredInventoryCollapsed(false),
   )
+  const [mapShare, setMapShare] = useState(() => readMapShare())
+  const [railWidthPx, setRailWidthPx] = useState(() => readRailWidthPx())
+  const mapShareRef = useRef(mapShare)
+  const railWidthRef = useRef(railWidthPx)
+  mapShareRef.current = mapShare
+  railWidthRef.current = railWidthPx
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const isNarrow = useMediaQuery('(max-width: 720px)')
   const isMedium = useMediaQuery('(max-width: 1100px)')
@@ -55,6 +77,29 @@ export function PlayWorkbench() {
     : isMedium
       ? 'medium'
       : 'wide'
+
+  const onRailResize = useCallback((deltaPx: number) => {
+    setRailWidthPx((prev) =>
+      clamp(prev + deltaPx, MIN_RAIL_WIDTH_PX, MAX_RAIL_WIDTH_PX),
+    )
+  }, [])
+
+  const onMapResize = useCallback((deltaPx: number) => {
+    const root = rootRef.current
+    if (!root) return
+    // Available width for terminal+map (approx: root minus rail, gaps, handles)
+    const rail =
+      root.dataset.inventoryCollapsed === 'true'
+        ? 44
+        : railWidthRef.current
+    const chrome = rail + 8 * 4 + 12 // padding + gaps + splitters
+    const available = Math.max(200, root.clientWidth - chrome)
+    setMapShare((prev) => {
+      // Dragging the map handle right shrinks the map
+      const next = prev - deltaPx / available
+      return clamp(next, MIN_MAP_SHARE, MAX_MAP_SHARE)
+    })
+  }, [])
 
   // Medium only supports play|map tabs — drop inv/more when leaving narrow
   useEffect(() => {
@@ -200,13 +245,22 @@ export function PlayWorkbench() {
     </button>
   )
 
+  const layoutStyle = {
+    ['--rail-col' as string]: inventoryCollapsed
+      ? 'var(--rail-collapsed-width)'
+      : `${railWidthPx}px`,
+    ['--map-col' as string]: `${Math.round(mapShare * 1000) / 10}%`,
+  }
+
   return (
     <div
+      ref={rootRef}
       className={styles.root}
       data-testid="play-workbench"
       data-breakpoint={breakpoint}
       data-pane={pane}
       data-inventory-collapsed={inventoryCollapsed ? 'true' : 'false'}
+      style={layoutStyle}
     >
       <div className={styles.scanlines} aria-hidden="true" />
 
@@ -297,6 +351,19 @@ export function PlayWorkbench() {
         </div>
       </aside>
 
+      {showLeft && !inventoryCollapsed && breakpoint !== 'narrow' ? (
+        <div className={styles.railSplit}>
+          <ResizeHandle
+            label="Resize inventory panel"
+            data-testid="resize-rail"
+            onDrag={onRailResize}
+            onDragEnd={() => writeRailWidthPx(railWidthRef.current)}
+          />
+        </div>
+      ) : (
+        <div className={styles.railSplitSpacer} aria-hidden />
+      )}
+
       <main
         className={`${styles.terminal}${showTerminal ? '' : ` ${styles.paneHidden}`}`}
         aria-hidden={!showTerminal}
@@ -314,6 +381,19 @@ export function PlayWorkbench() {
         />
       </main>
 
+      {breakpoint === 'wide' && showTerminal && showMap ? (
+        <div className={styles.mapSplit}>
+          <ResizeHandle
+            label="Resize map panel"
+            data-testid="resize-map"
+            onDrag={onMapResize}
+            onDragEnd={() => writeMapShare(mapShareRef.current)}
+          />
+        </div>
+      ) : (
+        <div className={styles.mapSplitSpacer} aria-hidden />
+      )}
+
       <aside
         className={`${styles.map}${showMap ? '' : ` ${styles.paneHidden}`}`}
         aria-label="Map pane"
@@ -326,6 +406,7 @@ export function PlayWorkbench() {
           selectedRoomId={session.selectedRoomId ?? null}
           exits={snapshot.exits}
           onSelectRoom={selectMapRoom}
+          gameId={session.gameId}
         />
       </aside>
 

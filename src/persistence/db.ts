@@ -3,8 +3,16 @@ import type { LibraryGame, MapGraphState } from '../domain/types'
 import type { SaveRecord } from './saveRepo'
 import type { FeelieMeta } from './feeliesRepo'
 
+/** Per-room player notes (keyed by game + room id). */
+export interface RoomNoteRecord {
+  gameId: string
+  roomId: string
+  text: string
+  updatedAt: number
+}
+
 export const DB_NAME = 'infocom-workbench'
-export const DB_VERSION = 1
+export const DB_VERSION = 2
 
 export interface WorkbenchDB extends DBSchema {
   games: {
@@ -34,6 +42,11 @@ export interface WorkbenchDB extends DBSchema {
     value: FeelieMeta & { mime: string; data: ArrayBuffer }
     indexes: { 'by-gameId': string }
   }
+  roomNotes: {
+    key: [string, string] // [gameId, roomId]
+    value: RoomNoteRecord
+    indexes: { 'by-gameId': string }
+  }
 }
 
 let dbPromise: Promise<IDBPDatabase<WorkbenchDB>> | null = null
@@ -41,7 +54,7 @@ let dbPromise: Promise<IDBPDatabase<WorkbenchDB>> | null = null
 export async function openDb(): Promise<IDBPDatabase<WorkbenchDB>> {
   if (!dbPromise) {
     dbPromise = openDB<WorkbenchDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion) {
         if (!db.objectStoreNames.contains('games')) {
           db.createObjectStore('games', { keyPath: 'gameId' })
         }
@@ -63,6 +76,12 @@ export async function openDb(): Promise<IDBPDatabase<WorkbenchDB>> {
         if (!db.objectStoreNames.contains('feelies')) {
           const feelies = db.createObjectStore('feelies', { keyPath: 'id' })
           feelies.createIndex('by-gameId', 'gameId')
+        }
+        if (oldVersion < 2 && !db.objectStoreNames.contains('roomNotes')) {
+          const notes = db.createObjectStore('roomNotes', {
+            keyPath: ['gameId', 'roomId'],
+          })
+          notes.createIndex('by-gameId', 'gameId')
         }
       },
       blocking() {

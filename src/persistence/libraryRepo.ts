@@ -35,7 +35,7 @@ export async function getStoryBytes(
 export async function deleteGameCascade(gameId: string): Promise<void> {
   const db = await openDb()
   const tx = db.transaction(
-    ['games', 'storyBytes', 'covers', 'saves', 'maps', 'feelies'],
+    ['games', 'storyBytes', 'covers', 'saves', 'maps', 'feelies', 'roomNotes'],
     'readwrite',
   )
 
@@ -46,6 +46,10 @@ export async function deleteGameCascade(gameId: string): Promise<void> {
   const feeliesStore = tx.objectStore('feelies')
   const feelieKeys = await feeliesStore.index('by-gameId').getAllKeys(gameId)
   await Promise.all(feelieKeys.map((key) => feeliesStore.delete(key)))
+
+  const notesStore = tx.objectStore('roomNotes')
+  const noteKeys = await notesStore.index('by-gameId').getAllKeys(gameId)
+  await Promise.all(noteKeys.map((key) => notesStore.delete(key)))
 
   await Promise.all([
     tx.objectStore('games').delete(gameId),

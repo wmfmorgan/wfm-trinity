@@ -1,8 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
+import 'fake-indexeddb/auto'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { deleteDB } from 'idb'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ExitInfo, MapGraphState } from '../../domain/types'
+import { closeDb, DB_NAME } from '../../persistence/db'
 import { MapView } from './MapView'
+
+beforeEach(async () => {
+  await closeDb()
+  await deleteDB(DB_NAME)
+})
 
 function graphWithRooms(
   rooms: Array<{ id: string; name: string; x: number; y: number }>,
@@ -55,6 +63,37 @@ describe('MapView', () => {
       'aria-label',
       expect.stringMatching(/north up/i),
     )
+  })
+
+  it('shows room notes panel when a room is selected and gameId is set', async () => {
+    render(
+      <MapView
+        graph={oneRoom}
+        currentRoomId="meadow"
+        selectedRoomId="meadow"
+        exits={[]}
+        onSelectRoom={vi.fn()}
+        gameId="game-notes-1"
+      />,
+    )
+    expect(screen.getByTestId('room-notes-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('room-notes-input')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/notes for this room/i)).toBeInTheDocument()
+  })
+
+  it('shows notes hint when gameId set but no room selected', () => {
+    render(
+      <MapView
+        graph={oneRoom}
+        currentRoomId="meadow"
+        selectedRoomId={null}
+        exits={[]}
+        onSelectRoom={vi.fn()}
+        gameId="game-notes-2"
+      />,
+    )
+    expect(screen.getByTestId('room-notes-hint')).toBeInTheDocument()
+    expect(screen.queryByTestId('room-notes-panel')).not.toBeInTheDocument()
   })
 
   it('shows empty state when graph has no nodes', () => {

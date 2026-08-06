@@ -247,6 +247,110 @@
   stroke-width: 2.5;
 }
 
+.noteDot {
+  fill: var(--crt-amber);
+  stroke: var(--crt-panel);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.notesPanel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem 0.65rem 0.55rem;
+  border-top: 1px solid var(--crt-border);
+  background: rgba(0, 0, 0, 0.25);
+  min-height: 0;
+}
+
+.notesHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.notesTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--crt-fg-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notesStatus {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: var(--crt-fg-dim);
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.notesClose {
+  appearance: none;
+  flex-shrink: 0;
+  border: 1px solid var(--crt-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--crt-fg-dim);
+  font-family: var(--crt-font);
+  font-size: 1rem;
+  line-height: 1;
+  width: 1.6rem;
+  height: 1.6rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.notesClose:hover {
+  color: var(--crt-fg);
+  border-color: var(--crt-fg-dim);
+}
+
+.notesInput {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 4.5rem;
+  max-height: 12rem;
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--crt-border);
+  border-radius: 4px;
+  background: var(--crt-bg);
+  color: var(--crt-fg);
+  font-family: var(--crt-font);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  caret-color: var(--crt-fg-bright);
+}
+
+.notesInput:focus {
+  outline: 1px solid var(--crt-fg-dim);
+  outline-offset: 1px;
+}
+
+.notesInput::placeholder {
+  color: var(--crt-fg-dim);
+  opacity: 0.75;
+}
+
+.notesHint {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.35rem 0.65rem 0.5rem;
+  border-top: 1px solid var(--crt-border);
+  font-size: 0.7rem;
+  color: var(--crt-fg-dim);
+}
+
 @keyframes pulse {
   0%,
   100% {

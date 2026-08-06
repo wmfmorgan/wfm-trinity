@@ -1,0 +1,45 @@
+.handle {
+  grid-area: unset; /* positioned by parent layout */
+  width: 0.45rem;
+  margin: 0 -0.1rem;
+  flex-shrink: 0;
+  align-self: stretch;
+  cursor: col-resize;
+  position: relative;
+  z-index: 5;
+  touch-action: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.handle::after {
+  content: '';
+  position: absolute;
+  inset: 0.35rem 0.12rem;
+  border-radius: 2px;
+  background: var(--crt-border);
+  opacity: 0.55;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.handle:hover::after,
+.handle:focus-visible::after {
+  opacity: 1;
+  background: var(--crt-fg-dim);
+  box-shadow: 0 0 8px rgba(51, 255, 102, 0.25);
+}
+
+.handle:focus-visible {
+  outline: none;
+}
+
+/* Applied to body while dragging so iframes/text don't steal events */
+:global(body.infocom-resizing) {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+:global(body.infocom-resizing *) {
+  cursor: col-resize !important;
+}

@@ -2,12 +2,14 @@
    status | left inventory | terminal | map | feelies strip
 */
 .root {
+  --rail-col: var(--rail-width);
+  --map-col: 34%;
   display: grid;
   grid-template:
-    'status status status' minmax(var(--status-height), auto)
-    'left terminal map' 1fr
-    'feelies feelies feelies' var(--feelies-height)
-    / var(--rail-width) 1fr minmax(var(--map-min-width), 34%);
+    'status status status status status' minmax(var(--status-height), auto)
+    'left railSplit terminal mapSplit map' 1fr
+    'feelies feelies feelies feelies feelies' var(--feelies-height)
+    / var(--rail-col) 0.45rem minmax(0, 1fr) 0.45rem minmax(var(--map-min-width), var(--map-col));
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -19,16 +21,11 @@
   font-family: var(--crt-font);
   position: relative;
   overflow: hidden;
-  transition: grid-template-columns 160ms ease;
 }
 
 /* Collapsed inventory: thin strip — terminal + map take the freed width */
 .root[data-inventory-collapsed='true'] {
-  grid-template:
-    'status status status' minmax(var(--status-height), auto)
-    'left terminal map' 1fr
-    'feelies feelies feelies' var(--feelies-height)
-    / var(--rail-collapsed-width) 1fr minmax(var(--map-min-width), 40%);
+  --rail-col: var(--rail-collapsed-width);
 }
 
 /* Workbench-level CRT scanlines */
@@ -180,6 +177,42 @@
   width: 100%;
 }
 
+.railSplit,
+.mapSplit {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  position: relative;
+  z-index: 6;
+}
+
+.railSplit {
+  grid-area: railSplit;
+}
+
+.mapSplit {
+  grid-area: mapSplit;
+}
+
+.railSplitSpacer,
+.mapSplitSpacer {
+  grid-area: railSplit;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.mapSplitSpacer {
+  grid-area: mapSplit;
+}
+
+.railSplit > *,
+.mapSplit > * {
+  width: 100%;
+  min-height: 100%;
+}
+
 .terminal {
   grid-area: terminal;
   min-height: 0;
@@ -309,20 +342,16 @@
 /* —— Medium: max-width 1100px — map as tab/drawer; left rail + terminal —— */
 .root[data-breakpoint='medium'] {
   grid-template:
-    'status status' minmax(var(--status-height), auto)
-    'tabs tabs' auto
-    'left main' 1fr
-    'feelies feelies' var(--feelies-height)
-    / var(--rail-width) 1fr;
+    'status status status' minmax(var(--status-height), auto)
+    'tabs tabs tabs' auto
+    'left railSplit main' 1fr
+    'feelies feelies feelies' var(--feelies-height)
+    / var(--rail-col) 0.45rem minmax(0, 1fr);
 }
 
-.root[data-breakpoint='medium'][data-inventory-collapsed='true'] {
-  grid-template:
-    'status status' minmax(var(--status-height), auto)
-    'tabs tabs' auto
-    'left main' 1fr
-    'feelies feelies' var(--feelies-height)
-    / var(--rail-collapsed-width) 1fr;
+.root[data-breakpoint='medium'] .mapSplit,
+.root[data-breakpoint='medium'] .mapSplitSpacer {
+  display: none;
 }
 
 .root[data-breakpoint='medium'] .tabs {
@@ -346,6 +375,13 @@
 
 .root[data-breakpoint='narrow'] .tabs {
   display: flex;
+}
+
+.root[data-breakpoint='narrow'] .railSplit,
+.root[data-breakpoint='narrow'] .railSplitSpacer,
+.root[data-breakpoint='narrow'] .mapSplit,
+.root[data-breakpoint='narrow'] .mapSplitSpacer {
+  display: none;
 }
 
 .root[data-breakpoint='narrow'] .left,

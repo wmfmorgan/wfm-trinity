@@ -13,6 +13,11 @@ import type {
   MapGraphState,
   RoomNode,
 } from '../../domain/types'
+import {
+  getRoomNote,
+  listNotedRoomIds,
+  putRoomNote,
+} from '../../persistence/roomNotesRepo'
 import { CompassRose } from './CompassRose'
 import styles from './MapView.module.css'
 
@@ -23,6 +28,8 @@ export interface MapViewProps {
   exits: ExitInfo[]
   onSelectRoom: (id: string | null) => void
   onRecenter?: () => void
+  /** When set, room notes load/save under this game id. */
+  gameId?: string
 }
 
 interface Camera {
@@ -130,6 +137,7 @@ export function MapView({
   exits,
   onSelectRoom,
   onRecenter,
+  gameId,
 }: MapViewProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [size, setSize] = useState({ w: 320, h: 240 })
@@ -137,6 +145,13 @@ export function MapView({
     const node = graph.nodes[currentRoomId]
     return { x: node?.x ?? 0, y: node?.y ?? 0, k: 1 }
   })
+  const [notedRoomIds, setNotedRoomIds] = useState<Set<string>>(() => new Set())
+  const [noteText, setNoteText] = useState('')
+  const [noteStatus, setNoteStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    'idle',
+  )
+  const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const noteLoadGen = useRef(0)
 
   const dragRef = useRef<{
     pointerId: number
@@ -146,6 +161,75 @@ export function MapView({
     startCamY: number
     moved: boolean
   } | null>(null)
+
+  // Load which rooms have notes (for map markers)
+  useEffect(() => {
+    if (!gameId) {
+      setNotedRoomIds(new Set())
+      return
+    }
+    let cancelled = false
+    void listNotedRoomIds(gameId)
+      .then((ids) => {
+        if (!cancelled) setNotedRoomIds(new Set(ids))
+      })
+      .catch(() => {
+        /* unmount / idb teardown in tests */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [gameId])
+
+  // Load note when selection changes
+  useEffect(() => {
+    if (!gameId || !selectedRoomId) {
+      setNoteText('')
+      setNoteStatus('idle')
+      return
+    }
+    const gen = ++noteLoadGen.current
+    setNoteStatus('idle')
+    void getRoomNote(gameId, selectedRoomId)
+      .then((rec) => {
+        if (noteLoadGen.current !== gen) return
+        setNoteText(rec?.text ?? '')
+      })
+      .catch(() => {
+        /* unmount / idb teardown in tests */
+      })
+  }, [gameId, selectedRoomId])
+
+  const scheduleNoteSave = useCallback(
+    (roomId: string, text: string) => {
+      if (!gameId) return
+      if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
+      setNoteStatus('saving')
+      noteSaveTimer.current = setTimeout(() => {
+        void putRoomNote(gameId, roomId, text)
+          .then(() => {
+            setNoteStatus('saved')
+            setNotedRoomIds((prev) => {
+              const next = new Set(prev)
+              if (text.trim()) next.add(roomId)
+              else next.delete(roomId)
+              return next
+            })
+            window.setTimeout(() => {
+              setNoteStatus((s) => (s === 'saved' ? 'idle' : s))
+            }, 1200)
+          })
+          .catch(() => setNoteStatus('error'))
+      }, 400)
+    },
+    [gameId],
+  )
+
+  useEffect(() => {
+    return () => {
+      if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
+    }
+  }, [])
 
   // Track SVG client size for viewBox + wheel math
   useEffect(() => {
@@ -210,6 +294,9 @@ export function MapView({
   const zoomPct = Math.round(camera.k * 100)
   const canZoomIn = camera.k < MAX_K - 1e-6
   const canZoomOut = camera.k > MIN_K + 1e-6
+  const selectedNode =
+    selectedRoomId != null ? graph.nodes[selectedRoomId] : undefined
+  const selectedLabel = selectedNode?.name || selectedRoomId || ''
 
   function onPointerDown(e: ReactPointerEvent<SVGSVGElement>) {
     if (e.button !== 0) return
@@ -371,11 +458,13 @@ export function MapView({
             {nodes.map((node) => {
               const isCurrent = node.id === currentRoomId
               const isSelected = node.id === selectedRoomId
+              const hasNote = notedRoomIds.has(node.id)
               const label = node.name || node.id
               const classNames = [
                 styles.node,
                 isCurrent ? styles.current : '',
                 isSelected ? styles.selected : '',
+                hasNote ? styles.hasNote : '',
               ]
                 .filter(Boolean)
                 .join(' ')
@@ -387,13 +476,14 @@ export function MapView({
                   data-room-id={node.id}
                   data-current={isCurrent ? 'true' : undefined}
                   data-selected={isSelected ? 'true' : undefined}
+                  data-has-note={hasNote ? 'true' : undefined}
                   onPointerDown={(e) => onRoomClick(e, node.id)}
                   role="button"
                   tabIndex={0}
                   aria-label={
                     isCurrent
-                      ? `Current room: ${label}`
-                      : `Room: ${label}`
+                      ? `Current room: ${label}${hasNote ? ' (has notes)' : ''}`
+                      : `Room: ${label}${hasNote ? ' (has notes)' : ''}`
                   }
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -402,7 +492,10 @@ export function MapView({
                     }
                   }}
                 >
-                  <title>{label}</title>
+                  <title>
+                    {label}
+                    {hasNote ? ' — has notes' : ''}
+                  </title>
                   <rect
                     x={-NODE_W / 2}
                     y={-NODE_H / 2}
@@ -432,12 +525,65 @@ export function MapView({
                       <span className={styles.labelText}>{label}</span>
                     </div>
                   </foreignObject>
+                  {hasNote ? (
+                    <circle
+                      className={styles.noteDot}
+                      cx={NODE_W / 2 - 6}
+                      cy={-NODE_H / 2 + 6}
+                      r={4}
+                      aria-hidden
+                    />
+                  ) : null}
                 </g>
               )
             })}
           </g>
         </svg>
       </div>
+
+      {gameId && selectedRoomId && selectedNode ? (
+        <div className={styles.notesPanel} data-testid="room-notes-panel">
+          <div className={styles.notesHeader}>
+            <span className={styles.notesTitle}>
+              Notes — {selectedLabel}
+            </span>
+            <span className={styles.notesStatus} data-testid="room-notes-status">
+              {noteStatus === 'saving'
+                ? 'Saving…'
+                : noteStatus === 'saved'
+                  ? 'Saved'
+                  : noteStatus === 'error'
+                    ? 'Save failed'
+                    : ''}
+            </span>
+            <button
+              type="button"
+              className={styles.notesClose}
+              aria-label="Close notes"
+              onClick={() => onSelectRoom(null)}
+            >
+              ×
+            </button>
+          </div>
+          <textarea
+            className={styles.notesInput}
+            data-testid="room-notes-input"
+            value={noteText}
+            placeholder="Notes for this room (saved automatically)…"
+            rows={4}
+            onChange={(e) => {
+              const text = e.target.value
+              setNoteText(text)
+              scheduleNoteSave(selectedRoomId, text)
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : gameId ? (
+        <p className={styles.notesHint} data-testid="room-notes-hint">
+          Click a room to select it and add notes.
+        </p>
+      ) : null}
     </section>
   )
 }

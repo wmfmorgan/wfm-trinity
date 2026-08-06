@@ -110,6 +110,25 @@ describe('PlayWorkbench', () => {
     expect(root).toHaveAttribute('data-inventory-collapsed', 'false')
   })
 
+  it('exposes resize handles between inventory, terminal, and map on wide layout', async () => {
+    const gameId = await seedGame('workbench-resize')
+    await usePlayStore.getState().openGame(gameId, 'new')
+    // Force wide breakpoint
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    render(<PlayWorkbench />)
+    expect(screen.getByTestId('resize-rail')).toBeInTheDocument()
+    expect(screen.getByTestId('resize-map')).toBeInTheDocument()
+  })
+
   it('map room select only updates selectedRoomId (does not walk)', async () => {
     const user = userEvent.setup()
     const gameId = await seedGame('workbench-map-select')
