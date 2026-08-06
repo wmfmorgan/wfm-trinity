@@ -19,12 +19,14 @@ import type {
 } from '../../domain/types'
 import type { ZMachineAdapter } from '../types'
 import {
+  decodeSaveBlob,
+  encodeIwz2,
+  type StackPayload,
+} from '../saveCodec'
+import {
   StoryValidationError,
   validateStoryBytes,
 } from '../storyValidate'
-
-/** Magic header for workbench-local save blobs (not Quetzal). */
-const SAVE_MAGIC = 'IWZ1'
 
 /** Player object short-name heuristics (Infocom / Inform). */
 const PLAYER_NAME_RE = /^(you|cretin|yourself|player)$/i
@@ -224,18 +226,6 @@ function formatEngineError(err: unknown): Error {
     )
   }
   return err instanceof Error ? err : new Error(raw)
-}
-
-interface SerializedSave {
-  magic: typeof SAVE_MAGIC
-  pc: number
-  staticBase: number
-  dynamic: number[]
-  stack: {
-    data: number[]
-    framePointers: number[]
-  }
-  storyBytes: number[]
 }
 
 function emptySnapshot(): TurnSnapshot {
@@ -557,44 +547,55 @@ export function createZvmAdapter(): ZMachineAdapter {
       if (!storyBytes) throw new Error('No story loaded')
       const staticBase = machine.header.staticMemoryBase
       const dynamic = machine.memory.readBytes(0, staticBase)
-      const payload: SerializedSave = {
-        magic: SAVE_MAGIC,
+      const stack = machine.stack.serialize() as StackPayload
+      // IWZ2: do not embed the story (library already has it). Much smaller
+      // and avoids JSON ArrayBuffer .buffer padding bugs in IWZ1.
+      return encodeIwz2({
         pc: machine.pc,
         staticBase,
-        dynamic: Array.from(dynamic),
-        stack: machine.stack.serialize(),
-        storyBytes: Array.from(storyBytes),
-      }
-      return new TextEncoder().encode(JSON.stringify(payload)).buffer
+        dynamic,
+        stack,
+      })
     },
 
-    async restore(data: ArrayBuffer): Promise<TurnSnapshot> {
-      const json = new TextDecoder().decode(data)
-      let payload: SerializedSave
+    async restore(
+      data: ArrayBuffer,
+      storyFromLibrary?: ArrayBuffer,
+    ): Promise<TurnSnapshot> {
+      let decoded
       try {
-        payload = JSON.parse(json) as SerializedSave
-      } catch {
-        throw new Error('Invalid save data')
-      }
-      if (payload.magic !== SAVE_MAGIC) {
-        throw new Error('Unrecognized save format (expected IWZ1)')
+        decoded = decodeSaveBlob(data)
+      } catch (err) {
+        throw new Error(
+          err instanceof Error ? err.message : 'Invalid save data',
+        )
       }
 
-      // Build a fresh VM, apply dynamic RAM + stack + PC, then run from the
-      // saved PC (typically the mid-turn sread). No intro boot needed.
-      generation += 1
-      const bootGen = generation
-      const story = new Uint8Array(payload.storyBytes)
+      let story: Uint8Array
+      if (decoded.storyBytes && decoded.storyBytes.byteLength > 0) {
+        story = decoded.storyBytes
+      } else if (storyFromLibrary && storyFromLibrary.byteLength > 0) {
+        story = new Uint8Array(storyFromLibrary)
+      } else if (storyBytes) {
+        story = storyBytes
+      } else {
+        throw new Error(
+          'Save has no embedded story and no library story was provided',
+        )
+      }
+
       try {
         validateStoryBytes(story)
       } catch (err) {
         if (err instanceof StoryValidationError) {
-          throw new Error(
-            `Save embeds an invalid story: ${err.message}`,
-          )
+          throw new Error(`Cannot restore: ${err.message}`)
         }
         throw err
       }
+
+      // Fresh VM, apply dynamic RAM + stack + PC, run from saved PC (mid-sread).
+      generation += 1
+      const bootGen = generation
       storyBytes = story.slice()
       io = new BridgeIO()
       try {
@@ -604,20 +605,20 @@ export function createZvmAdapter(): ZMachineAdapter {
       }
 
       const staticBase = Math.min(
-        payload.staticBase,
+        decoded.staticBase,
         zm.header.staticMemoryBase,
-        payload.dynamic.length,
+        decoded.dynamic.byteLength,
       )
       for (let i = 0; i < staticBase; i++) {
-        zm.memory.writeByte(i, payload.dynamic[i]!)
+        zm.memory.writeByte(i, decoded.dynamic[i]!)
       }
-      zm.stack.deserialize(payload.stack)
-      ;(zm as unknown as { _pc: number })._pc = payload.pc
+      zm.stack.deserialize(decoded.stack)
+      ;(zm as unknown as { _pc: number })._pc = decoded.pc
 
       startRun(zm, io, bootGen)
       try {
-        // Restores usually land on a line prompt; still skip a stray char splash.
-        return await settleAfterInput({ autoSkipCharPrompts: true })
+        // Restores land mid-turn at a line prompt — do not auto-skip.
+        return await settleAfterInput({ autoSkipCharPrompts: false })
       } catch (err) {
         throw formatEngineError(err)
       }

@@ -76,11 +76,18 @@ function encodeState(state: MockState): ArrayBuffer {
     score: state.score,
     moves: state.moves,
   }
-  return new TextEncoder().encode(JSON.stringify(payload)).buffer
+  const bytes = new TextEncoder().encode(JSON.stringify(payload))
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  )
 }
 
 function decodeState(data: ArrayBuffer): Omit<MockState, 'lastSnapshot'> {
-  const json = new TextDecoder().decode(data)
+  const bytes = new Uint8Array(data)
+  let end = bytes.byteLength
+  while (end > 0 && bytes[end - 1] === 0) end--
+  const json = new TextDecoder().decode(bytes.subarray(0, end))
   const parsed = JSON.parse(json) as {
     locationId: RoomId
     inventory: InventoryItem[]
@@ -212,7 +219,7 @@ export function createMockAdapter(): ZMachineAdapter {
       return encodeState(state)
     },
 
-    async restore(data: ArrayBuffer): Promise<TurnSnapshot> {
+    async restore(data: ArrayBuffer, _story?: ArrayBuffer): Promise<TurnSnapshot> {
       const restored = decodeState(data)
       state = {
         ...restored,

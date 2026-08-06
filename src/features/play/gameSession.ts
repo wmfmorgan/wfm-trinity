@@ -48,22 +48,26 @@ export async function startNewSession(
 
 export async function startFromSave(
   save: SaveRecord,
-  _story: ArrayBuffer,
+  story: ArrayBuffer,
   adapter: ZMachineAdapter,
 ): Promise<SessionState> {
-  // Real zvm saves embed story bytes; mock restores state alone.
-  // `story` is reserved for engines that require load-before-restore.
-  const snapshot = await adapter.restore(save.zmachineSave)
+  // IWZ2 needs library story bytes; IWZ1 embeds story (story still passed as fallback).
+  const snapshot = await adapter.restore(save.zmachineSave, story)
   const turn = save.shell.history.length
+  // Prefer the map frozen in the save; re-apply current room so selection is valid.
   const map = applyVisit(save.shell.map, {
     location: snapshot.location,
     turn,
   })
+  const transcript =
+    save.shell.transcript && save.shell.transcript.length > 0
+      ? save.shell.transcript + snapshot.transcriptDelta
+      : snapshot.transcriptDelta
 
   return {
     gameId: save.gameId,
     snapshot,
-    fullTranscript: snapshot.transcriptDelta,
+    fullTranscript: transcript,
     map,
     history: [...save.shell.history],
     turn,

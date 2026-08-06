@@ -139,8 +139,11 @@ describe('playStore', () => {
 
     const record = await getSave(gameId, 'autosave')
     expect(record).toBeDefined()
-    expect(record!.name).toBe('Autosave')
+    expect(record!.name).toMatch(/^Autosave/)
     expect(record!.shell.history).toEqual(['north'])
+    // Room change should also write a room checkpoint
+    const roomCp = await getSave(gameId, 'autosave-room-0')
+    expect(roomCp?.locationName).toBe('Woods')
   })
 
   it('double-submit while busy does not throw and second is ignored', async () => {

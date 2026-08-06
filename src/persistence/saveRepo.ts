@@ -7,8 +7,15 @@ export interface SaveRecord {
   name: string
   updatedAt: number
   locationName?: string
+  /** Engine quasistatic (IWZ2 binary or legacy IWZ1 JSON). */
   zmachineSave: ArrayBuffer
-  shell: { map: MapGraphState; history: string[] }
+  shell: {
+    map: MapGraphState
+    history: string[]
+    /** Optional transcript snapshot for restore continuity. */
+    transcript?: string
+    locationId?: string
+  }
 }
 
 function toMeta(record: SaveRecord): SaveSlotMeta {
@@ -49,7 +56,8 @@ export async function deleteSave(
 }
 
 function isAutosaveSlot(slotId: string): boolean {
-  return slotId === 'autosave' || slotId.startsWith('autosave-')
+  // Primary continue slot, room checkpoints (autosave-room-N), and legacy autosave-*
+  return slotId === 'autosave' || slotId.startsWith('autosave')
 }
 
 export async function getLatestAutosave(
@@ -57,6 +65,9 @@ export async function getLatestAutosave(
 ): Promise<SaveRecord | undefined> {
   const db = await openDb()
   const records = await db.getAllFromIndex('saves', 'by-gameId', gameId)
+  // Prefer the dedicated latest slot when present
+  const primary = records.find((r) => r.slotId === 'autosave')
+  if (primary) return primary
   const autosaves = records.filter((r) => isAutosaveSlot(r.slotId))
   if (autosaves.length === 0) return undefined
   return autosaves.reduce((best, cur) =>

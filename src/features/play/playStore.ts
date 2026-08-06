@@ -161,12 +161,17 @@ export const usePlayStore = create<PlayState>((set, get) => ({
 
     set({ busy: true })
     try {
+      const prevLocationId = session.snapshot.location.id
       const next = await submitCommand(session, adapter, line)
       set({ session: next, error: null })
 
-      // Soft-fail autosave: keep playing if persistence fails
+      // Soft-fail autosave: keep playing if persistence fails.
+      // Room-entry checkpoints rotate when location changes (past 3 rooms).
       try {
-        await autosave(next, adapter)
+        const roomChanged =
+          next.snapshot.location.id !== prevLocationId &&
+          next.snapshot.location.id !== 'unknown'
+        await autosave(next, adapter, { roomChanged })
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Autosave failed'
