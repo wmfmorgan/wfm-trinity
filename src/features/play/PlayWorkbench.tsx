@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { UiScaleControl } from '../../app/UiScaleControl'
 import { commandForDir } from '../../domain/directions'
-import type { Direction } from '../../domain/types'
 import { COMMON_VERBS } from '../../domain/verbs'
 import { FeeliesStrip } from '../feelies/FeeliesStrip'
 import { useLibraryStore } from '../library/libraryStore'
 import { MapView } from '../map/MapView'
 import { SaveModal } from '../saves/SaveModal'
-import { Compass } from './Compass'
 import { InventoryPanel } from './InventoryPanel'
 import { usePlayStore } from './playStore'
 import { StatusBar } from './StatusBar'
@@ -99,14 +97,6 @@ export function PlayWorkbench() {
     [submit],
   )
 
-  const onMove = useCallback(
-    (dir: Direction) => {
-      void submit(commandForDir(dir))
-      focusCommandInput()
-    },
-    [submit],
-  )
-
   const onInsert = useCallback(
     (name: string) => {
       queueInsert(name)
@@ -170,7 +160,6 @@ export function PlayWorkbench() {
   // Game over truly disables input. Busy must NOT disable the command field —
   // HTML disabled inputs drop focus, so every turn would kick the player out.
   const gameOver = snapshot.waitingFor === 'finished'
-  const compassDisabled = gameOver || busy
 
   // Visibility by breakpoint + local pane
   const showLeft =
@@ -285,7 +274,7 @@ export function PlayWorkbench() {
 
       <aside
         className={`${styles.left}${showLeft ? '' : ` ${styles.paneHidden}`}`}
-        aria-label="Inventory and compass"
+        aria-label="Inventory"
         aria-hidden={!showLeft}
         data-testid="workbench-left"
       >
@@ -294,13 +283,6 @@ export function PlayWorkbench() {
             items={snapshot.inventory}
             onInsert={onInsert}
             onExamine={onExamine}
-          />
-        </div>
-        <div className={styles.compass}>
-          <Compass
-            exits={snapshot.exits}
-            onMove={onMove}
-            disabled={compassDisabled}
           />
         </div>
       </aside>

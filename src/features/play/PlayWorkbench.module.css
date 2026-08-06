@@ -1,5 +1,5 @@
 /* Desktop workbench grid:
-   status | left inv+compass | terminal | map | feelies strip
+   status | left inventory | terminal | map | feelies strip
 */
 .root {
   display: grid;
@@ -150,7 +150,7 @@
 }
 
 .inventory {
-  flex: 1 1 50%;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -158,11 +158,6 @@
 
 .inventory > * {
   flex: 1;
-  min-height: 0;
-}
-
-.compass {
-  flex: 0 0 auto;
   min-height: 0;
 }
 

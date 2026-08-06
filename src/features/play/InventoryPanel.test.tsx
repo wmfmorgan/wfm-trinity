@@ -57,4 +57,43 @@ describe('InventoryPanel', () => {
     )
     expect(screen.getByText(/empty-handed/i)).toBeInTheDocument()
   })
+
+  it('collapses and expands via header toggle', async () => {
+    const user = userEvent.setup()
+    render(
+      <InventoryPanel
+        items={[LAMP]}
+        onInsert={vi.fn()}
+        onExamine={vi.fn()}
+        defaultCollapsed={false}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'brass lamp' })).toBeInTheDocument()
+    const toggle = screen.getByTestId('inventory-toggle')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: 'brass lamp' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('inventory-panel')).toHaveAttribute(
+      'data-collapsed',
+      'true',
+    )
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'brass lamp' })).toBeInTheDocument()
+  })
+
+  it('shows item count in the header', () => {
+    render(
+      <InventoryPanel
+        items={[LAMP, SWORD]}
+        onInsert={vi.fn()}
+        onExamine={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('inventory-toggle')).toHaveTextContent(/Inventory \(2\)/)
+  })
 })

@@ -64,7 +64,7 @@ describe('PlayWorkbench', () => {
     vi.restoreAllMocks()
   })
 
-  it('open game + click north moves to woods (mock adapter)', async () => {
+  it('open game + type north moves to woods (mock adapter)', async () => {
     const user = userEvent.setup()
     const gameId = await seedGame('workbench-north')
     await usePlayStore.getState().openGame(gameId, 'new')
@@ -77,14 +77,13 @@ describe('PlayWorkbench', () => {
 
     expect(screen.getByTestId('play-workbench')).toBeInTheDocument()
     expect(screen.getByTestId('terminal')).toBeInTheDocument()
-    expect(screen.getByLabelText('Inventory')).toBeInTheDocument()
-    expect(screen.getByLabelText('Compass')).toBeInTheDocument()
+    expect(screen.getByTestId('inventory-panel')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Compass')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Map')).toBeInTheDocument()
     expect(screen.getByTestId('feelies-strip')).toBeInTheDocument()
 
-    const north = screen.getByRole('button', { name: 'north' })
-    expect(north).toBeEnabled()
-    await user.click(north)
+    const input = document.getElementById('command-input') as HTMLInputElement
+    await user.type(input, 'north{enter}')
 
     await waitFor(() => {
       expect(usePlayStore.getState().session!.snapshot.location.id).toBe(
@@ -93,8 +92,6 @@ describe('PlayWorkbench', () => {
     })
 
     expect(screen.getByText(/You are in the Woods/i)).toBeInTheDocument()
-    // Focus returns to command line after compass action
-    expect(document.getElementById('command-input')).toHaveFocus()
   })
 
   it('map room select only updates selectedRoomId (does not walk)', async () => {
