@@ -22,14 +22,24 @@ const ABBREV: Record<string, Direction> = {
 const FULL_NAMES = new Set<string>(ALL_DIRS)
 
 /**
- * Normalize a raw exit token (full name or abbreviation) to a Direction.
- * Returns null when the token is not a known direction.
+ * Normalize a raw exit token or command line to a Direction.
+ * Accepts "north", "n", and phrases like "go north" / "walk ne".
+ * Returns null when no direction is found.
  */
 export function normalizeExitDir(raw: string): Direction | null {
-  const key = raw.trim().toLowerCase()
+  const key = raw.trim().toLowerCase().replace(/\s+/g, ' ')
   if (!key) return null
   if (FULL_NAMES.has(key)) return key as Direction
-  return ABBREV[key] ?? null
+  if (ABBREV[key]) return ABBREV[key]!
+
+  // "go north", "walk n", "run northeast"
+  const tokens = key.split(' ')
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i]!
+    if (FULL_NAMES.has(t)) return t as Direction
+    if (ABBREV[t]) return ABBREV[t]!
+  }
+  return null
 }
 
 /**

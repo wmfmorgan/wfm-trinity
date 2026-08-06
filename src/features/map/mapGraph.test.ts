@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { emptyMap, applyVisit, selectRoom } from './mapGraph'
+import { satisfiesDirection } from './mapLayout'
 
 describe('emptyMap', () => {
   it('creates empty graph for gameId', () => {
@@ -32,42 +33,74 @@ describe('applyVisit', () => {
       turn: 1,
       cellSize: 80,
     })
-    expect(g.nodes['r2'].y).toBe(-80)
-    expect(g.nodes['r2'].x).toBe(0)
+    expect(g.nodes['r2'].y).toBeLessThan(g.nodes['r1'].y)
+    expect(
+      satisfiesDirection(g.nodes['r1'], g.nodes['r2'], 'north', 80),
+    ).toBe(true)
     expect(
       g.edges.some((e) => e.fromId === 'r1' && e.toId === 'r2' && e.dir === 'north'),
     ).toBe(true)
   })
 
   it('does not create unvisited destination nodes from exits alone', () => {
-    // applyVisit only — no exit-table room creation API
     let g = emptyMap('g1')
     g = applyVisit(g, { location: { id: 'r1', name: 'Meadow' }, turn: 0 })
     expect(Object.keys(g.nodes)).toHaveLength(1)
   })
 
-  it('does not reflow existing node coordinates', () => {
+  it('keeps rooms north of a hub after multi-path discovery (relayout)', () => {
+    // Mirrors Trinity: Bottom of Stairs with Halfway + Vertex north of it,
+    // even when those rooms were also linked via other paths.
     let g = emptyMap('g1')
-    g = applyVisit(g, { location: { id: 'r1', name: 'Meadow' }, turn: 0 })
+    const cs = 80
     g = applyVisit(g, {
-      location: { id: 'r2', name: 'Woods' },
-      prevLocationId: 'r1',
+      location: { id: 'stairs', name: 'Bottom of Stairs' },
+      turn: 0,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'halfway', name: 'Halfway' },
+      prevLocationId: 'stairs',
       movedDir: 'north',
       turn: 1,
-      cellSize: 80,
+      cellSize: cs,
     })
-    const r1Before = { ...g.nodes['r1'] }
     g = applyVisit(g, {
-      location: { id: 'r1', name: 'Meadow' },
-      prevLocationId: 'r2',
-      movedDir: 'south',
+      location: { id: 'vertex', name: 'Vertex' },
+      prevLocationId: 'halfway',
+      movedDir: 'northwest',
       turn: 2,
-      cellSize: 80,
+      cellSize: cs,
     })
-    expect(g.nodes['r1'].x).toBe(r1Before.x)
-    expect(g.nodes['r1'].y).toBe(r1Before.y)
-    expect(g.nodes['r1'].lastVisitTurn).toBe(2)
-    expect(g.nodes['r1'].firstVisitTurn).toBe(0)
+    // Return and also connect vertex via another route that might confuse sticky layout
+    g = applyVisit(g, {
+      location: { id: 'stairs', name: 'Bottom of Stairs' },
+      prevLocationId: 'halfway',
+      movedDir: 'south',
+      turn: 3,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'bog', name: 'North Bog' },
+      prevLocationId: 'stairs',
+      movedDir: 'northeast',
+      turn: 4,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'vertex', name: 'Vertex' },
+      prevLocationId: 'bog',
+      movedDir: 'northwest',
+      turn: 5,
+      cellSize: cs,
+    })
+
+    const stairs = g.nodes['stairs']!
+    const halfway = g.nodes['halfway']!
+    const vertex = g.nodes['vertex']!
+    expect(halfway.y).toBeLessThan(stairs.y)
+    expect(vertex.y).toBeLessThan(stairs.y)
+    expect(satisfiesDirection(stairs, halfway, 'north', cs)).toBe(true)
   })
 
   it('marks edges bidirectional when reverse exists', () => {
@@ -94,34 +127,33 @@ describe('applyVisit', () => {
     expect(south?.dir).toBe('south')
   })
 
-  it('spiral-nudges when preferred cell is occupied', () => {
+  it('places second north neighbor still north of hub (no south spill)', () => {
     let g = emptyMap('g1')
-    g = applyVisit(g, { location: { id: 'r1', name: 'Hub' }, turn: 0 })
-    // Place A north of hub
+    const cs = 80
+    g = applyVisit(g, { location: { id: 'hub', name: 'Hub' }, turn: 0, cellSize: cs })
     g = applyVisit(g, {
       location: { id: 'a', name: 'A' },
-      prevLocationId: 'r1',
+      prevLocationId: 'hub',
       movedDir: 'north',
       turn: 1,
-      cellSize: 80,
+      cellSize: cs,
     })
-    // Teleport/back: place B also claiming north of hub → collision with A
     g = applyVisit(g, {
       location: { id: 'b', name: 'B' },
-      prevLocationId: 'r1',
+      prevLocationId: 'hub',
       movedDir: 'north',
       turn: 2,
-      cellSize: 80,
+      cellSize: cs,
     })
-    expect(g.nodes['a']).toMatchObject({ x: 0, y: -80 })
-    // B must not share A's cell
-    expect(`${g.nodes['b'].x},${g.nodes['b'].y}`).not.toBe('0,-80')
-    // Still on grid multiples of cellSize (Object.is treats -0 ≠ 0)
-    expect(g.nodes['b'].x % 80 === 0).toBe(true)
-    expect(g.nodes['b'].y % 80 === 0).toBe(true)
+    const hub = g.nodes['hub']!
+    expect(g.nodes['a'].y).toBeLessThan(hub.y)
+    expect(g.nodes['b'].y).toBeLessThan(hub.y)
+    expect(`${g.nodes['a'].x},${g.nodes['a'].y}`).not.toBe(
+      `${g.nodes['b'].x},${g.nodes['b'].y}`,
+    )
   })
 
-  it('places east room at +cellSize x', () => {
+  it('places east room east of previous', () => {
     let g = emptyMap('g1')
     g = applyVisit(g, { location: { id: 'r1', name: 'A' }, turn: 0 })
     g = applyVisit(g, {
@@ -131,7 +163,10 @@ describe('applyVisit', () => {
       turn: 1,
       cellSize: 80,
     })
-    expect(g.nodes['r2']).toMatchObject({ x: 80, y: 0 })
+    expect(g.nodes['r2'].x).toBeGreaterThan(g.nodes['r1'].x)
+    expect(satisfiesDirection(g.nodes['r1'], g.nodes['r2'], 'east', 80)).toBe(
+      true,
+    )
   })
 
   it('adds undirected edge when move has no direction', () => {
@@ -170,14 +205,12 @@ describe('applyVisit', () => {
     expect(matches).toHaveLength(1)
   })
 
-  it('updates name on revisit without changing layout', () => {
+  it('updates name on revisit', () => {
     let g = emptyMap('g1')
     g = applyVisit(g, { location: { id: 'r1', name: 'Dark' }, turn: 0 })
     g = applyVisit(g, { location: { id: 'r1', name: 'Kitchen' }, turn: 3 })
     expect(g.nodes['r1']).toMatchObject({
       name: 'Kitchen',
-      x: 0,
-      y: 0,
       firstVisitTurn: 0,
       lastVisitTurn: 3,
     })

@@ -3,8 +3,10 @@ import { reverseDir } from '../../domain/directions'
 import {
   DEFAULT_CELL_SIZE,
   findFreeCell,
+  isPlanarDir,
   occupiedKeys,
   preferredPosition,
+  relayoutPositions,
 } from './mapLayout'
 
 export function emptyMap(gameId: string): MapGraphState {
@@ -27,6 +29,7 @@ export function applyVisit(
 
   const existing = graph.nodes[id]
   let nodes: Record<string, RoomNode>
+  let edges = graph.edges
 
   if (existing) {
     nodes = {
@@ -38,7 +41,12 @@ export function applyVisit(
       },
     }
   } else {
-    const pos = placeNewRoom(graph, args.prevLocationId, args.movedDir, cellSize)
+    const pos = placeNewRoom(
+      graph,
+      args.prevLocationId,
+      args.movedDir,
+      cellSize,
+    )
     nodes = {
       ...graph.nodes,
       [id]: {
@@ -52,9 +60,20 @@ export function applyVisit(
     }
   }
 
-  let edges = graph.edges
   if (args.prevLocationId && args.prevLocationId !== id) {
     edges = addEdge(edges, args.prevLocationId, id, args.movedDir ?? null)
+  }
+
+  // After any new room or new edge, re-solve coordinates so N/S/E/W edges
+  // keep geometric order (e.g. rooms north of Bottom of Stairs stay above it).
+  const shouldRelayout =
+    !existing ||
+    (args.prevLocationId != null &&
+      args.prevLocationId !== id &&
+      isPlanarDir(args.movedDir))
+
+  if (shouldRelayout && Object.keys(nodes).length > 1) {
+    nodes = relayoutPositions(nodes, edges, cellSize)
   }
 
   return { gameId: graph.gameId, nodes, edges }
@@ -77,13 +96,15 @@ function placeNewRoom(
   const occupied = occupiedKeys(graph.nodes)
 
   if (!prevLocationId || !graph.nodes[prevLocationId]) {
-    // First room (or orphan visit): origin, or spiral if origin taken
     return findFreeCell({ x: 0, y: 0 }, occupied, cellSize)
   }
 
-  const prev = graph.nodes[prevLocationId]
+  const prev = graph.nodes[prevLocationId]!
   const preferred = preferredPosition(prev, movedDir, cellSize)
-  return findFreeCell(preferred, occupied, cellSize)
+  return findFreeCell(preferred, occupied, cellSize, {
+    origin: prev,
+    dir: movedDir,
+  })
 }
 
 function isReverseEdge(
