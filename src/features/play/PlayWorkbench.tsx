@@ -47,6 +47,7 @@ export function PlayWorkbench() {
   const pendingInsertId = usePlayStore((s) => s.pendingInsertId)
   const submit = usePlayStore((s) => s.submit)
   const selectMapRoom = usePlayStore((s) => s.selectMapRoom)
+  const moveMapRoom = usePlayStore((s) => s.moveMapRoom)
   const queueInsert = usePlayStore((s) => s.queueInsert)
   const clearPendingInsert = usePlayStore((s) => s.clearPendingInsert)
   const returnToLibrary = usePlayStore((s) => s.returnToLibrary)
@@ -406,6 +407,7 @@ export function PlayWorkbench() {
           selectedRoomId={session.selectedRoomId ?? null}
           exits={snapshot.exits}
           onSelectRoom={selectMapRoom}
+          onRoomMove={moveMapRoom}
           gameId={session.gameId}
         />
       </aside>

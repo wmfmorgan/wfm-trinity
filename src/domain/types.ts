@@ -49,6 +49,11 @@ export interface RoomNode {
   lastVisitTurn: number
   x: number
   y: number
+  /**
+   * User-dragged position. When true, auto-relayout must not move this room;
+   * manual placement overrides geometric arrangement.
+   */
+  manual?: boolean
 }
 
 export interface MapEdge {

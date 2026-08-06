@@ -172,7 +172,11 @@
 
 /* Room nodes */
 .node {
-  cursor: pointer;
+  cursor: grab;
+}
+
+.node:active {
+  cursor: grabbing;
 }
 
 .nodeRect {

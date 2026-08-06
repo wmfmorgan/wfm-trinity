@@ -35,6 +35,7 @@ describe('App', () => {
       flushAutosave: vi.fn(async () => {}),
       returnToLibrary: vi.fn(),
       selectMapRoom: vi.fn(),
+      moveMapRoom: vi.fn(),
       queueInsert: vi.fn(),
       clearPendingInsert: vi.fn(),
       clearError: vi.fn(),

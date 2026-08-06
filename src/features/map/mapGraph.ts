@@ -38,6 +38,7 @@ export function applyVisit(
         ...existing,
         name,
         lastVisitTurn: turn,
+        // preserve existing.manual pin
       },
     }
   } else {
@@ -85,6 +86,49 @@ export function selectRoom(
 ): string | null {
   if (roomId == null) return null
   return graph.nodes[roomId] ? roomId : null
+}
+
+/**
+ * User-drag a room to a new world position. Marks the node as `manual` so
+ * subsequent auto-relayout will not move it.
+ */
+export function moveRoom(
+  graph: MapGraphState,
+  roomId: string,
+  x: number,
+  y: number,
+): MapGraphState {
+  const node = graph.nodes[roomId]
+  if (!node) return graph
+  return {
+    ...graph,
+    nodes: {
+      ...graph.nodes,
+      [roomId]: {
+        ...node,
+        x,
+        y,
+        manual: true,
+      },
+    },
+  }
+}
+
+/** Clear manual pin so auto-layout may move the room again. */
+export function clearRoomManual(
+  graph: MapGraphState,
+  roomId: string,
+): MapGraphState {
+  const node = graph.nodes[roomId]
+  if (!node || !node.manual) return graph
+  const { manual: _m, ...rest } = node
+  return {
+    ...graph,
+    nodes: {
+      ...graph.nodes,
+      [roomId]: { ...rest, manual: false },
+    },
+  }
 }
 
 function placeNewRoom(

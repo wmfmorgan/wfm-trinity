@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { emptyMap, applyVisit, selectRoom } from './mapGraph'
+import { emptyMap, applyVisit, moveRoom, selectRoom } from './mapGraph'
 import { satisfiesDirection } from './mapLayout'
 
 describe('emptyMap', () => {
@@ -235,5 +235,42 @@ describe('selectRoom', () => {
     const g = emptyMap('g1')
     expect(selectRoom(g, null)).toBeNull()
     expect(selectRoom(g, 'missing')).toBeNull()
+  })
+})
+
+describe('moveRoom', () => {
+  it('pins room at manual coordinates and survives relayout', () => {
+    let g = emptyMap('g1')
+    const cs = 80
+    g = applyVisit(g, {
+      location: { id: 'hub', name: 'Hub' },
+      turn: 0,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'north', name: 'North' },
+      prevLocationId: 'hub',
+      movedDir: 'north',
+      turn: 1,
+      cellSize: cs,
+    })
+
+    g = moveRoom(g, 'north', 400, 200)
+    expect(g.nodes['north']).toMatchObject({
+      x: 400,
+      y: 200,
+      manual: true,
+    })
+
+    // Discover another room — relayout must not move the pinned node
+    g = applyVisit(g, {
+      location: { id: 'east', name: 'East' },
+      prevLocationId: 'hub',
+      movedDir: 'east',
+      turn: 2,
+      cellSize: cs,
+    })
+    expect(g.nodes['north']).toMatchObject({ x: 400, y: 200, manual: true })
+    expect(g.nodes['east']).toBeDefined()
   })
 })

@@ -7,6 +7,8 @@ import {
 import { getLatestAutosave } from '../../persistence/saveRepo'
 import { createAdapter } from '../../zmachine/createAdapter'
 import type { AdapterKind, ZMachineAdapter } from '../../zmachine/types'
+import { putMap } from '../../persistence/mapRepo'
+import { moveRoom } from '../map/mapGraph'
 import { autosave, loadSlot, saveSlot } from '../saves/saveService'
 import {
   startFromSave,
@@ -42,6 +44,8 @@ export interface PlayState {
   flushAutosave: () => Promise<void>
   returnToLibrary: () => void
   selectMapRoom: (roomId: string | null) => void
+  /** Pin a room at a user-dragged world position (persists; blocks auto-layout). */
+  moveMapRoom: (roomId: string, x: number, y: number) => void
   queueInsert: (text: string) => void
   clearPendingInsert: () => void
   clearError: () => void
@@ -98,6 +102,19 @@ export const usePlayStore = create<PlayState>((set, get) => ({
     if (!session) return
     set({
       session: { ...session, selectedRoomId: roomId },
+    })
+  },
+
+  moveMapRoom: (roomId, x, y) => {
+    const { session } = get()
+    if (!session) return
+    const map = moveRoom(session.map, roomId, x, y)
+    set({
+      session: { ...session, map },
+    })
+    // Persist layout so Continues and reloads keep pins
+    void putMap(map).catch(() => {
+      /* best-effort */
     })
   },
 

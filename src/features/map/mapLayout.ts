@@ -215,7 +215,7 @@ export function occupiedKeys(
 
 /**
  * Rebuild node coordinates from directional edges so N/S/E/W order stays true.
- * BFS from the earliest room, then repair any violated directed edges.
+ * Nodes with `manual: true` keep their coordinates and act as fixed anchors.
  */
 export function relayoutPositions(
   nodes: Record<string, RoomNode>,
@@ -224,6 +224,8 @@ export function relayoutPositions(
 ): Record<string, RoomNode> {
   const ids = Object.keys(nodes)
   if (ids.length === 0) return nodes
+
+  const isManual = (id: string) => nodes[id]?.manual === true
 
   type Link = { to: string; dir: Direction }
   const out = new Map<string, Link[]>()
@@ -257,10 +259,43 @@ export function relayoutPositions(
     occupied.add(cellKey(x, y))
   }
 
-  place(root, 0, 0)
+  // Seed all user-pinned rooms first (override auto arrangement)
+  for (const id of ids) {
+    if (!isManual(id)) continue
+    const n = nodes[id]!
+    // If two manuals collide on same cell, keep first; nudge later ones
+    if (occupied.has(cellKey(n.x, n.y))) {
+      const nudged = findFreeCell({ x: n.x, y: n.y }, occupied, cellSize)
+      place(id, nudged.x, nudged.y)
+    } else {
+      place(id, n.x, n.y)
+    }
+  }
 
-  const queue: string[] = [root]
-  const seen = new Set<string>([root])
+  const queue: string[] = []
+  const seen = new Set<string>()
+
+  // Start BFS from manual nodes and earliest root
+  for (const id of ids) {
+    if (isManual(id)) {
+      seen.add(id)
+      queue.push(id)
+    }
+  }
+  if (!seen.has(root)) {
+    if (isManual(root)) {
+      // already queued
+    } else {
+      place(root, 0, 0)
+      seen.add(root)
+      queue.push(root)
+    }
+  }
+  if (queue.length === 0) {
+    place(root, 0, 0)
+    seen.add(root)
+    queue.push(root)
+  }
 
   const placeNeighbor = (
     fromId: string,
@@ -268,7 +303,14 @@ export function relayoutPositions(
     dir: Direction | null,
   ) => {
     if (seen.has(toId)) return
-    const fromPos = positions.get(fromId)!
+    // Manual rooms already fixed
+    if (isManual(toId)) {
+      seen.add(toId)
+      queue.push(toId)
+      return
+    }
+    const fromPos = positions.get(fromId)
+    if (!fromPos) return
     const preferred = preferredPosition(fromPos, dir, cellSize)
     const fallback = dir
       ? preferred
@@ -289,7 +331,6 @@ export function relayoutPositions(
       placeNeighbor(id, to, dir)
     }
 
-    // Reverse directed edges: if B --south--> A and we're at A, B is north of A
     for (const e of edges) {
       if (e.toId !== id || !isPlanarDir(e.dir)) continue
       const dirFromHere = reverseDir(e.dir)
@@ -298,7 +339,6 @@ export function relayoutPositions(
 
     for (const nb of undirected.get(id) ?? []) {
       if (seen.has(nb)) continue
-      // Infer direction from any planar edge between them
       const forward = edges.find(
         (e) => e.fromId === id && e.toId === nb && isPlanarDir(e.dir),
       )
@@ -312,9 +352,13 @@ export function relayoutPositions(
     }
   }
 
-  // Disconnected components
+  // Disconnected auto components
   for (const id of ids) {
     if (seen.has(id)) continue
+    if (isManual(id)) {
+      seen.add(id)
+      continue
+    }
     const pos = findFreeCell({ x: 0, y: 0 }, occupied, cellSize)
     place(id, pos.x, pos.y)
     seen.add(id)
@@ -331,12 +375,22 @@ export function relayoutPositions(
     }
   }
 
-  repairDirectionalConstraints(positions, edges, cellSize, occupied)
+  repairDirectionalConstraints(positions, edges, cellSize, occupied, isManual)
 
   const next: Record<string, RoomNode> = {}
   for (const id of ids) {
-    const p = positions.get(id) ?? { x: 0, y: 0 }
-    next[id] = { ...nodes[id]!, x: p.x, y: p.y }
+    const p = positions.get(id) ?? { x: nodes[id]!.x, y: nodes[id]!.y }
+    if (isManual(id)) {
+      // Keep pinned; use placed coords if we had to nudge for collisions
+      next[id] = {
+        ...nodes[id]!,
+        x: p.x,
+        y: p.y,
+        manual: true,
+      }
+    } else {
+      next[id] = { ...nodes[id]!, x: p.x, y: p.y, manual: false }
+    }
   }
   return next
 }
@@ -346,11 +400,14 @@ function repairDirectionalConstraints(
   edges: MapEdge[],
   cellSize: number,
   occupied: Set<string>,
+  isManual: (id: string) => boolean,
 ): void {
   for (let pass = 0; pass < 12; pass++) {
     let moved = false
     for (const e of edges) {
       if (!isPlanarDir(e.dir)) continue
+      // Never move user-pinned rooms
+      if (isManual(e.toId)) continue
       const from = positions.get(e.fromId)
       const to = positions.get(e.toId)
       if (!from || !to) continue

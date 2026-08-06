@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -30,6 +31,8 @@ export interface MapViewProps {
   onRecenter?: () => void
   /** When set, room notes load/save under this game id. */
   gameId?: string
+  /** User finished dragging a room to a new world position. */
+  onRoomMove?: (roomId: string, x: number, y: number) => void
 }
 
 interface Camera {
@@ -138,6 +141,7 @@ export function MapView({
   onSelectRoom,
   onRecenter,
   gameId,
+  onRoomMove,
 }: MapViewProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [size, setSize] = useState({ w: 320, h: 240 })
@@ -150,6 +154,10 @@ export function MapView({
   const [noteStatus, setNoteStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
     'idle',
   )
+  /** Live drag overrides so rooms move under the cursor without waiting for parent. */
+  const [dragPos, setDragPos] = useState<Record<string, { x: number; y: number }>>(
+    {},
+  )
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const noteLoadGen = useRef(0)
 
@@ -159,6 +167,18 @@ export function MapView({
     startClientY: number
     startCamX: number
     startCamY: number
+    moved: boolean
+  } | null>(null)
+
+  const roomDragRef = useRef<{
+    pointerId: number
+    roomId: string
+    grabDx: number
+    grabDy: number
+    startX: number
+    startY: number
+    lastX: number
+    lastY: number
     moved: boolean
   } | null>(null)
 
@@ -289,17 +309,39 @@ export function MapView({
   const vbH = size.h / camera.k
   const viewBox = `${camera.x - vbW / 2} ${camera.y - vbH / 2} ${vbW} ${vbH}`
 
-  const nodes = Object.values(graph.nodes)
+  function clientToWorld(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
+    const el = svgRef.current
+    if (!el) return { x: camera.x, y: camera.y }
+    const r = el.getBoundingClientRect()
+    const sx = r.width > 0 ? (clientX - r.left) / r.width : 0.5
+    const sy = r.height > 0 ? (clientY - r.top) / r.height : 0.5
+    return {
+      x: camera.x - vbW / 2 + sx * vbW,
+      y: camera.y - vbH / 2 + sy * vbH,
+    }
+  }
+
+  const nodes = Object.values(graph.nodes).map((n) => {
+    const d = dragPos[n.id]
+    return d ? { ...n, x: d.x, y: d.y } : n
+  })
   const isEmpty = nodes.length === 0
   const zoomPct = Math.round(camera.k * 100)
   const canZoomIn = camera.k < MAX_K - 1e-6
   const canZoomOut = camera.k > MIN_K + 1e-6
   const selectedNode =
-    selectedRoomId != null ? graph.nodes[selectedRoomId] : undefined
+    selectedRoomId != null
+      ? nodes.find((n) => n.id === selectedRoomId) ??
+        graph.nodes[selectedRoomId]
+      : undefined
   const selectedLabel = selectedNode?.name || selectedRoomId || ''
 
   function onPointerDown(e: ReactPointerEvent<SVGSVGElement>) {
     if (e.button !== 0) return
+    if (roomDragRef.current) return
     const target = e.target as Element
     if (target.closest('[data-room-id]')) return
     dragRef.current = {
@@ -314,6 +356,21 @@ export function MapView({
   }
 
   function onPointerMove(e: ReactPointerEvent<SVGSVGElement>) {
+    const rd = roomDragRef.current
+    if (rd && rd.pointerId === e.pointerId) {
+      const w = clientToWorld(e.clientX, e.clientY)
+      const x = w.x - rd.grabDx
+      const y = w.y - rd.grabDy
+      if (
+        Math.hypot(x - rd.startX, y - rd.startY) > 4 / Math.max(camera.k, 0.01)
+      ) {
+        rd.moved = true
+      }
+      rd.lastX = x
+      rd.lastY = y
+      setDragPos((prev) => ({ ...prev, [rd.roomId]: { x, y } }))
+      return
+    }
     const d = dragRef.current
     if (!d || d.pointerId !== e.pointerId) return
     const dx = e.clientX - d.startClientX
@@ -327,6 +384,27 @@ export function MapView({
   }
 
   function onPointerUp(e: ReactPointerEvent<SVGSVGElement>) {
+    const rd = roomDragRef.current
+    if (rd && rd.pointerId === e.pointerId) {
+      roomDragRef.current = null
+      if (rd.moved && onRoomMove) {
+        onRoomMove(rd.roomId, rd.lastX, rd.lastY)
+      } else if (!rd.moved) {
+        onSelectRoom(rd.roomId)
+      }
+      setDragPos((prev) => {
+        const next = { ...prev }
+        delete next[rd.roomId]
+        return next
+      })
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already released */
+      }
+      return
+    }
+
     const d = dragRef.current
     if (!d || d.pointerId !== e.pointerId) return
     if (!d.moved) {
@@ -340,9 +418,32 @@ export function MapView({
     }
   }
 
-  function onRoomClick(e: ReactPointerEvent, id: string) {
+  function onRoomPointerDown(e: ReactPointerEvent, id: string) {
     e.stopPropagation()
-    onSelectRoom(id)
+    if (e.button !== 0) return
+    const node = graph.nodes[id]
+    if (!node) return
+    const w = clientToWorld(e.clientX, e.clientY)
+    roomDragRef.current = {
+      pointerId: e.pointerId,
+      roomId: id,
+      grabDx: w.x - node.x,
+      grabDy: w.y - node.y,
+      startX: node.x,
+      startY: node.y,
+      lastX: node.x,
+      lastY: node.y,
+      moved: false,
+    }
+    setDragPos((prev) => ({ ...prev, [id]: { x: node.x, y: node.y } }))
+    const svg = svgRef.current
+    if (svg && typeof svg.setPointerCapture === 'function') {
+      try {
+        svg.setPointerCapture(e.pointerId)
+      } catch {
+        /* jsdom / unsupported */
+      }
+    }
   }
 
   const stubs = exits.filter(
@@ -350,7 +451,15 @@ export function MapView({
       !hasKnownEdgeTarget(graph.edges, graph.nodes, currentRoomId, ex.dir),
   )
 
-  const currentNode = graph.nodes[currentRoomId]
+  const currentNode =
+    nodes.find((n) => n.id === currentRoomId) ?? graph.nodes[currentRoomId]
+
+  // Edges use live drag positions
+  const nodeById = useMemo(() => {
+    const m = new Map<string, { x: number; y: number }>()
+    for (const n of nodes) m.set(n.id, n)
+    return m
+  }, [nodes])
 
   return (
     <section className={styles.root} aria-label="Map">
@@ -412,8 +521,8 @@ export function MapView({
         >
           <g className={styles.edges} aria-hidden>
             {graph.edges.map((e, i) => {
-              const a = graph.nodes[e.fromId]
-              const b = graph.nodes[e.toId]
+              const a = nodeById.get(e.fromId)
+              const b = nodeById.get(e.toId)
               if (!a || !b) return null
               return (
                 <line
@@ -477,13 +586,15 @@ export function MapView({
                   data-current={isCurrent ? 'true' : undefined}
                   data-selected={isSelected ? 'true' : undefined}
                   data-has-note={hasNote ? 'true' : undefined}
-                  onPointerDown={(e) => onRoomClick(e, node.id)}
+                  data-manual={node.manual ? 'true' : undefined}
+                  onPointerDown={(e) => onRoomPointerDown(e, node.id)}
                   role="button"
                   tabIndex={0}
+                  style={{ cursor: onRoomMove ? 'grab' : 'pointer' }}
                   aria-label={
                     isCurrent
-                      ? `Current room: ${label}${hasNote ? ' (has notes)' : ''}`
-                      : `Room: ${label}${hasNote ? ' (has notes)' : ''}`
+                      ? `Current room: ${label}${hasNote ? ' (has notes)' : ''}${node.manual ? ' (pinned)' : ''}`
+                      : `Room: ${label}${hasNote ? ' (has notes)' : ''}${node.manual ? ' (pinned)' : ''}`
                   }
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
