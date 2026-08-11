@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { UiScaleControl } from '../../app/UiScaleControl'
 import { commandForDir } from '../../domain/directions'
 import { COMMON_VERBS } from '../../domain/verbs'
@@ -142,6 +143,35 @@ export function PlayWorkbench() {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [session, flushAutosave])
+
+  // Escape returns focus to the command line when it is not already focused.
+  // Capture phase so map/notes don't swallow the key. Skips Saves modal.
+  useEffect(() => {
+    if (!session || savesOpen) return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' && e.key !== 'Esc') return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      const input = document.getElementById('command-input')
+      if (!(input instanceof HTMLInputElement) || input.disabled) return
+      if (document.activeElement === input) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      // paneHidden uses display:none — focus() fails until the terminal is shown.
+      flushSync(() => {
+        setPane((p) =>
+          p === 'map' || p === 'inv' || p === 'more' ? 'play' : p,
+        )
+      })
+      focusCommandInput()
+    }
+
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [session, savesOpen])
 
   const onSubmit = useCallback(
     (line: string) => {

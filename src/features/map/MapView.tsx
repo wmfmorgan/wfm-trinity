@@ -20,6 +20,7 @@ import {
   putRoomNote,
 } from '../../persistence/roomNotesRepo'
 import { CompassRose } from './CompassRose'
+import { isLayoutDir, isVerticalDir } from './mapLayout'
 import styles from './MapView.module.css'
 
 export interface MapViewProps {
@@ -521,18 +522,39 @@ export function MapView({
         >
           <g className={styles.edges} aria-hidden>
             {graph.edges.map((e, i) => {
+              // Only draw layout edges (cardinals/diagonals/up/down).
+              // Legacy null/in/out edges (teleports) stay unconnected.
+              if (!isLayoutDir(e.dir)) return null
               const a = nodeById.get(e.fromId)
               const b = nodeById.get(e.toId)
               if (!a || !b) return null
+              const vertical = isVerticalDir(e.dir)
+              const midX = (a.x + b.x) / 2
+              const midY = (a.y + b.y) / 2
+              const label =
+                e.dir === 'up' ? '↑' : e.dir === 'down' ? '↓' : null
               return (
-                <line
-                  key={edgeKey(e, i)}
-                  x1={a.x}
-                  y1={a.y}
-                  x2={b.x}
-                  y2={b.y}
-                  className={styles.edge}
-                />
+                <g key={edgeKey(e, i)}>
+                  <line
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                    className={vertical ? styles.edgeVertical : styles.edge}
+                    data-edge-dir={e.dir ?? undefined}
+                  />
+                  {label ? (
+                    <text
+                      x={midX}
+                      y={midY}
+                      className={styles.edgeLabel}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      {label}
+                    </text>
+                  ) : null}
+                </g>
               )
             })}
           </g>

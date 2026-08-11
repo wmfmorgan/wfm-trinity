@@ -151,6 +151,46 @@ describe('PlayWorkbench', () => {
     })
   })
 
+  it('Escape refocuses the command line when it is not focused', async () => {
+    const user = userEvent.setup()
+    const gameId = await seedGame('workbench-escape-focus')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    render(<PlayWorkbench />)
+
+    const input = document.getElementById('command-input') as HTMLInputElement
+    expect(input).toBeTruthy()
+
+    // Move focus off the command line (e.g. user clicked the map / transcript)
+    const map = screen.getByLabelText('Map')
+    map.focus()
+    expect(input).not.toHaveFocus()
+
+    await user.keyboard('{Escape}')
+
+    expect(input).toHaveFocus()
+  })
+
+  it('Escape does not steal focus while Saves modal is open', async () => {
+    const user = userEvent.setup()
+    const gameId = await seedGame('workbench-escape-saves')
+    await usePlayStore.getState().openGame(gameId, 'new')
+
+    render(<PlayWorkbench />)
+
+    await user.click(screen.getByTestId('saves-button'))
+    expect(screen.getByTestId('save-modal')).toBeInTheDocument()
+
+    const input = document.getElementById('command-input') as HTMLInputElement
+    input.blur()
+    expect(input).not.toHaveFocus()
+
+    await user.keyboard('{Escape}')
+
+    // Listener is disabled while modal is open — command stays unfocused
+    expect(input).not.toHaveFocus()
+  })
+
   it('inventory insert queues pendingInsert into terminal draft', async () => {
     const user = userEvent.setup()
     const gameId = await seedGame('workbench-insert')

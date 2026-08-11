@@ -160,6 +160,28 @@
   vector-effect: non-scaling-stroke;
 }
 
+/* Stairs / ladders (up/down) — dashed so they read as vertical travel */
+.edgeVertical {
+  stroke: var(--crt-amber);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  fill: none;
+  opacity: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+.edgeLabel {
+  fill: var(--crt-amber);
+  font-family: var(--crt-font);
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+  paint-order: stroke;
+  stroke: var(--crt-panel);
+  stroke-width: 3px;
+}
+
 /* Unknown exit stubs */
 .stub {
   stroke: var(--crt-fg-dim);

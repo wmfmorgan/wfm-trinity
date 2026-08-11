@@ -15,6 +15,21 @@ body,
   font-family: var(--crt-font);
 }
 
+/*
+ * Hide system scrollbars app-wide (CRT aesthetic).
+ * Overflow still works via wheel, trackpad, and keyboard.
+ */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+  width: 0;
+  height: 0;
+}
+
 /* Soft phosphor glow on primary text when motion is ok */
 body {
   text-shadow: var(--crt-glow);

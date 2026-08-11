@@ -169,19 +169,120 @@ describe('applyVisit', () => {
     )
   })
 
-  it('adds undirected edge when move has no direction', () => {
+  it('places teleport room without connecting edge (null dir)', () => {
     let g = emptyMap('g1')
-    g = applyVisit(g, { location: { id: 'r1', name: 'A' }, turn: 0 })
+    const cs = 80
+    g = applyVisit(g, { location: { id: 'r1', name: 'A' }, turn: 0, cellSize: cs })
     g = applyVisit(g, {
       location: { id: 'r2', name: 'B' },
       prevLocationId: 'r1',
       movedDir: null,
       turn: 1,
+      cellSize: cs,
     })
     expect(g.nodes['r2']).toBeDefined()
+    // Teleports must not force a layout edge
     expect(
-      g.edges.some((e) => e.fromId === 'r1' && e.toId === 'r2' && e.dir === null),
+      g.edges.some((e) => e.fromId === 'r1' && e.toId === 'r2'),
+    ).toBe(false)
+    // Free-placed island should not sit on top of origin
+    expect(`${g.nodes['r2'].x},${g.nodes['r2'].y}`).not.toBe(
+      `${g.nodes['r1'].x},${g.nodes['r1'].y}`,
+    )
+  })
+
+  it('places in/out rooms without connecting edges', () => {
+    let g = emptyMap('g1')
+    const cs = 80
+    g = applyVisit(g, { location: { id: 'r1', name: 'Yard' }, turn: 0, cellSize: cs })
+    g = applyVisit(g, {
+      location: { id: 'r2', name: 'House' },
+      prevLocationId: 'r1',
+      movedDir: 'in',
+      turn: 1,
+      cellSize: cs,
+    })
+    expect(g.nodes['r2']).toBeDefined()
+    expect(g.edges).toHaveLength(0)
+  })
+
+  it('stacks up room above previous and down below', () => {
+    let g = emptyMap('g1')
+    const cs = 80
+    g = applyVisit(g, {
+      location: { id: 'ground', name: 'Ground' },
+      turn: 0,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'attic', name: 'Attic' },
+      prevLocationId: 'ground',
+      movedDir: 'up',
+      turn: 1,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'cellar', name: 'Cellar' },
+      prevLocationId: 'ground',
+      movedDir: 'down',
+      turn: 2,
+      cellSize: cs,
+    })
+    const ground = g.nodes['ground']!
+    expect(g.nodes['attic'].y).toBeLessThan(ground.y)
+    expect(g.nodes['cellar'].y).toBeGreaterThan(ground.y)
+    expect(satisfiesDirection(ground, g.nodes['attic'], 'up', cs)).toBe(true)
+    expect(satisfiesDirection(ground, g.nodes['cellar'], 'down', cs)).toBe(
+      true,
+    )
+    expect(
+      g.edges.some(
+        (e) => e.fromId === 'ground' && e.toId === 'attic' && e.dir === 'up',
+      ),
     ).toBe(true)
+    expect(
+      g.edges.some(
+        (e) => e.fromId === 'ground' && e.toId === 'cellar' && e.dir === 'down',
+      ),
+    ).toBe(true)
+  })
+
+  it('teleport does not distort cardinal layout of neighbors', () => {
+    let g = emptyMap('g1')
+    const cs = 80
+    g = applyVisit(g, { location: { id: 'hub', name: 'Hub' }, turn: 0, cellSize: cs })
+    g = applyVisit(g, {
+      location: { id: 'north', name: 'North' },
+      prevLocationId: 'hub',
+      movedDir: 'north',
+      turn: 1,
+      cellSize: cs,
+    })
+    // Magic teleport elsewhere — no edge, free island
+    g = applyVisit(g, {
+      location: { id: 'magic', name: 'Magic Land' },
+      prevLocationId: 'hub',
+      movedDir: null,
+      turn: 2,
+      cellSize: cs,
+    })
+    // Continue exploring north of hub
+    g = applyVisit(g, {
+      location: { id: 'far', name: 'Far North' },
+      prevLocationId: 'north',
+      movedDir: 'north',
+      turn: 3,
+      cellSize: cs,
+    })
+    const hub = g.nodes['hub']!
+    expect(satisfiesDirection(hub, g.nodes['north'], 'north', cs)).toBe(true)
+    expect(satisfiesDirection(g.nodes['north'], g.nodes['far'], 'north', cs)).toBe(
+      true,
+    )
+    expect(g.nodes['far'].y).toBeLessThan(g.nodes['north'].y)
+    expect(
+      g.edges.some((e) => e.fromId === 'hub' && e.toId === 'magic'),
+    ).toBe(false)
   })
 
   it('does not duplicate an existing same-direction edge', () => {
@@ -235,6 +336,109 @@ describe('selectRoom', () => {
     const g = emptyMap('g1')
     expect(selectRoom(g, null)).toBeNull()
     expect(selectRoom(g, 'missing')).toBeNull()
+  })
+})
+
+describe('overlap expansion', () => {
+  it('pushes existing room aside when a new room claims the preferred cell', () => {
+    // Mirrors Trinity: stairs chain (north) + moor south of crater edge +
+    // The Bend west of Moor into the cell Vertex already occupies.
+    let g = emptyMap('g1')
+    const cs = 80
+    const steps: Array<{
+      id: string
+      name: string
+      prev?: string
+      dir?: 'north' | 'south' | 'east' | 'west' | 'northeast' | 'northwest'
+      turn: number
+    }> = [
+      { id: 'stairs', name: 'Bottom of Stairs', turn: 0 },
+      { id: 'halfway', name: 'Halfway', prev: 'stairs', dir: 'north', turn: 1 },
+      { id: 'vertex', name: 'Vertex', prev: 'halfway', dir: 'north', turn: 2 },
+      { id: 'south', name: 'South Bog', prev: 'stairs', dir: 'west', turn: 3 },
+      { id: 'north', name: 'North Bog', prev: 'south', dir: 'north', turn: 4 },
+      {
+        id: 'chasm',
+        name: "Chasm's Brink",
+        prev: 'north',
+        dir: 'east',
+        turn: 5,
+      },
+      { id: 'cliff', name: 'Under Cliff', prev: 'chasm', dir: 'east', turn: 6 },
+      {
+        id: 'edge',
+        name: "Crater's Edge",
+        prev: 'cliff',
+        dir: 'east',
+        turn: 7,
+      },
+      { id: 'crater', name: 'Crater', prev: 'edge', dir: 'east', turn: 8 },
+      { id: 'moor', name: 'Moor', prev: 'edge', dir: 'south', turn: 9 },
+      { id: 'bend', name: 'The Bend', prev: 'moor', dir: 'west', turn: 10 },
+    ]
+
+    for (const s of steps) {
+      g = applyVisit(g, {
+        location: { id: s.id, name: s.name },
+        prevLocationId: s.prev,
+        movedDir: s.dir,
+        turn: s.turn,
+        cellSize: cs,
+      })
+    }
+
+    const bend = g.nodes['bend']!
+    const vertex = g.nodes['vertex']!
+    const moor = g.nodes['moor']!
+    const halfway = g.nodes['halfway']!
+    const stairs = g.nodes['stairs']!
+
+    // No two rooms share a cell
+    const keys = Object.values(g.nodes).map((n) => `${n.x},${n.y}`)
+    expect(new Set(keys).size).toBe(keys.length)
+
+    // Bend is west of Moor
+    expect(satisfiesDirection(moor, bend, 'west', cs)).toBe(true)
+
+    // Stairs chain still stacks north
+    expect(satisfiesDirection(stairs, halfway, 'north', cs)).toBe(true)
+    expect(satisfiesDirection(halfway, vertex, 'north', cs)).toBe(true)
+
+    // Bend and Vertex must not sit on top of each other
+    expect(`${bend.x},${bend.y}`).not.toBe(`${vertex.x},${vertex.y}`)
+  })
+
+  it('expands along direction when preferred cell is already occupied', () => {
+    let g = emptyMap('g1')
+    const cs = 80
+    g = applyVisit(g, {
+      location: { id: 'a', name: 'A' },
+      turn: 0,
+      cellSize: cs,
+    })
+    g = applyVisit(g, {
+      location: { id: 'b', name: 'B' },
+      prevLocationId: 'a',
+      movedDir: 'north',
+      turn: 1,
+      cellSize: cs,
+    })
+    // C also north of A — preferred cell is B; must expand further north or aside
+    g = applyVisit(g, {
+      location: { id: 'c', name: 'C' },
+      prevLocationId: 'a',
+      movedDir: 'north',
+      turn: 2,
+      cellSize: cs,
+    })
+    const a = g.nodes['a']!
+    const b = g.nodes['b']!
+    const c = g.nodes['c']!
+    expect(`${b.x},${b.y}`).not.toBe(`${c.x},${c.y}`)
+    expect(satisfiesDirection(a, b, 'north', cs)).toBe(true)
+    expect(satisfiesDirection(a, c, 'north', cs)).toBe(true)
+    expect(b.y).toBeLessThan(a.y)
+    expect(c.y).toBeLessThan(a.y)
   })
 })
 

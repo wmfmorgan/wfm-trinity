@@ -32,7 +32,11 @@ const REVERSE: Record<Direction, Direction> = {
   out: 'in',
 }
 
-/** Screen-space grid steps: +x east, +y south (north = −y). */
+/**
+ * Screen-space grid steps: +x east, +y south (north = −y).
+ * Up/down use the same vertical axis as N/S so stairs/ladders stack
+ * above/below on the 2D map. In/out are non-layout (teleport-like).
+ */
 const DELTA: Record<Direction, { dx: number; dy: number }> = {
   north: { dx: 0, dy: -1 },
   south: { dx: 0, dy: 1 },
@@ -42,8 +46,10 @@ const DELTA: Record<Direction, { dx: number; dy: number }> = {
   northwest: { dx: -1, dy: -1 },
   southeast: { dx: 1, dy: 1 },
   southwest: { dx: -1, dy: 1 },
-  up: { dx: 0, dy: 0 },
-  down: { dx: 0, dy: 0 },
+  /** Vertical stack: up sits above (same visual as north). */
+  up: { dx: 0, dy: -1 },
+  /** Vertical stack: down sits below (same visual as south). */
+  down: { dx: 0, dy: 1 },
   in: { dx: 0, dy: 0 },
   out: { dx: 0, dy: 0 },
 }

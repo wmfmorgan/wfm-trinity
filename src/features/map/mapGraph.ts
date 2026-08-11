@@ -3,7 +3,7 @@ import { reverseDir } from '../../domain/directions'
 import {
   DEFAULT_CELL_SIZE,
   findFreeCell,
-  isPlanarDir,
+  isLayoutDir,
   occupiedKeys,
   preferredPosition,
   relayoutPositions,
@@ -26,6 +26,7 @@ export function applyVisit(
   const cellSize = args.cellSize ?? DEFAULT_CELL_SIZE
   const { id, name } = args.location
   const turn = args.turn
+  const movedDir = args.movedDir ?? null
 
   const existing = graph.nodes[id]
   let nodes: Record<string, RoomNode>
@@ -45,7 +46,7 @@ export function applyVisit(
     const pos = placeNewRoom(
       graph,
       args.prevLocationId,
-      args.movedDir,
+      movedDir,
       cellSize,
     )
     nodes = {
@@ -61,17 +62,22 @@ export function applyVisit(
     }
   }
 
-  if (args.prevLocationId && args.prevLocationId !== id) {
-    edges = addEdge(edges, args.prevLocationId, id, args.movedDir ?? null)
+  // Only link rooms when the move is a layout direction (cardinals/diagonals/up/down).
+  // Teleports and in/out place the room freely with no connecting edge.
+  if (
+    args.prevLocationId &&
+    args.prevLocationId !== id &&
+    isLayoutDir(movedDir)
+  ) {
+    edges = addEdge(edges, args.prevLocationId, id, movedDir)
   }
 
-  // After any new room or new edge, re-solve coordinates so N/S/E/W edges
-  // keep geometric order (e.g. rooms north of Bottom of Stairs stay above it).
+  // Re-solve coordinates only when a layout edge was involved so N/S/E/W/up/down
+  // stay geometrically consistent. Teleports free-place without reshuffling.
   const shouldRelayout =
-    !existing ||
-    (args.prevLocationId != null &&
-      args.prevLocationId !== id &&
-      isPlanarDir(args.movedDir))
+    args.prevLocationId != null &&
+    args.prevLocationId !== id &&
+    isLayoutDir(movedDir)
 
   if (shouldRelayout && Object.keys(nodes).length > 1) {
     nodes = relayoutPositions(nodes, edges, cellSize)
