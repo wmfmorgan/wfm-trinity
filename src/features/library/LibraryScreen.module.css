@@ -29,11 +29,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--crt-border);
   background: var(--crt-panel);
-  box-shadow: 0 0 12px rgba(51, 255, 102, 0.08);
+  box-shadow: 0 0 12px rgba(var(--crt-fg-rgb), 0.08);
 }
 
 .title {
@@ -43,12 +44,14 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--crt-fg-bright);
-  text-shadow: 0 0 8px rgba(51, 255, 102, 0.35);
+  text-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.35);
 }
 
 .headerActions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.75rem;
 }
 
@@ -72,7 +75,7 @@
 .importLabel:focus-within {
   border-color: var(--crt-fg);
   color: var(--crt-fg-bright);
-  box-shadow: 0 0 10px rgba(51, 255, 102, 0.2);
+  box-shadow: 0 0 10px rgba(var(--crt-fg-rgb), 0.2);
   outline: none;
 }
 
@@ -170,7 +173,7 @@
   flex-direction: column;
   border: 1px solid var(--crt-border);
   background: var(--crt-panel);
-  box-shadow: 0 0 12px rgba(51, 255, 102, 0.06);
+  box-shadow: 0 0 12px rgba(var(--crt-fg-rgb), 0.06);
   overflow: hidden;
 }
 
@@ -184,16 +187,16 @@
   object-fit: cover;
   background: linear-gradient(
     160deg,
-    #0a160a 0%,
-    #0d1f10 50%,
-    #0a120a 100%
+    var(--crt-cover-start) 0%,
+    var(--crt-cover-mid) 50%,
+    var(--crt-cover-end) 100%
   );
   border-bottom: 1px solid var(--crt-border);
   color: var(--crt-fg-bright);
   font-size: 2.5rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  text-shadow: 0 0 16px rgba(51, 255, 102, 0.45);
+  text-shadow: 0 0 16px rgba(var(--crt-fg-rgb), 0.45);
 }
 
 img.cover {
@@ -262,7 +265,7 @@ img.cover {
 .coverUploadLabel:focus-within {
   border-color: var(--crt-fg);
   color: var(--crt-fg-bright);
-  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+  box-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.2);
   outline: none;
 }
 
@@ -290,7 +293,7 @@ img.cover {
 .btn:focus-visible {
   border-color: var(--crt-fg);
   color: var(--crt-fg-bright);
-  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+  box-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.2);
   outline: none;
 }
 
@@ -336,7 +339,7 @@ img.cover {
 .titleInput:focus {
   outline: none;
   border-color: var(--crt-fg);
-  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+  box-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.2);
 }
 
 .editActions {
@@ -362,7 +365,7 @@ img.cover {
   background: var(--crt-panel);
   color: var(--crt-fg);
   padding: 1.25rem 1.5rem;
-  box-shadow: 0 0 24px rgba(51, 255, 102, 0.15);
+  box-shadow: 0 0 24px rgba(var(--crt-fg-rgb), 0.15);
 }
 
 .dialogTitle {

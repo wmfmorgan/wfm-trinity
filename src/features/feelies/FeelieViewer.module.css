@@ -19,7 +19,7 @@
   background: var(--crt-panel);
   color: var(--crt-fg);
   padding: 1rem 1.25rem 1.25rem;
-  box-shadow: 0 0 28px rgba(51, 255, 102, 0.18);
+  box-shadow: 0 0 28px rgba(var(--crt-fg-rgb), 0.18);
   font-family: var(--crt-font);
   overflow: hidden;
 }
@@ -38,7 +38,7 @@
   color: var(--crt-fg-bright);
   letter-spacing: 0.04em;
   word-break: break-word;
-  text-shadow: 0 0 8px rgba(51, 255, 102, 0.25);
+  text-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.25);
 }
 
 .error {
@@ -119,7 +119,7 @@
 .btn:focus-visible {
   border-color: var(--crt-fg);
   color: var(--crt-fg-bright);
-  box-shadow: 0 0 8px rgba(51, 255, 102, 0.2);
+  box-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.2);
   outline: none;
 }
 

@@ -11,7 +11,7 @@
   border-radius: 8px;
   box-shadow:
     inset 0 0 24px rgba(0, 0, 0, 0.45),
-    0 0 12px rgba(51, 255, 102, 0.08);
+    0 0 12px rgba(var(--crt-fg-rgb), 0.08);
   color: var(--crt-fg);
   font-family: var(--crt-font);
   overflow: hidden;
@@ -33,7 +33,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--crt-fg-bright);
-  text-shadow: 0 0 6px rgba(51, 255, 102, 0.3);
+  text-shadow: 0 0 6px rgba(var(--crt-fg-rgb), 0.3);
 }
 
 .toolbar {
@@ -64,7 +64,7 @@
 .toolBtn:hover:not(:disabled) {
   color: var(--crt-fg-bright);
   border-color: var(--crt-fg-dim);
-  background: rgba(51, 255, 102, 0.08);
+  background: rgba(var(--crt-fg-rgb), 0.08);
 }
 
 .toolBtn:disabled {
@@ -246,10 +246,10 @@
 }
 
 .current .nodeRect {
-  fill: rgba(51, 255, 102, 0.12);
+  fill: rgba(var(--crt-fg-rgb), 0.12);
   stroke: var(--crt-fg);
   stroke-width: 2;
-  filter: drop-shadow(0 0 4px rgba(51, 255, 102, 0.45));
+  filter: drop-shadow(0 0 4px rgba(var(--crt-fg-rgb), 0.45));
   animation: pulse 2.4s ease-in-out infinite;
 }
 
@@ -264,7 +264,7 @@
 }
 
 .selected:not(.current) .nodeRect {
-  fill: rgba(255, 176, 0, 0.08);
+  fill: rgba(var(--crt-accent-rgb), 0.08);
 }
 
 .node:focus-visible .nodeRect {
@@ -380,10 +380,10 @@
 @keyframes pulse {
   0%,
   100% {
-    filter: drop-shadow(0 0 3px rgba(51, 255, 102, 0.35));
+    filter: drop-shadow(0 0 3px rgba(var(--crt-fg-rgb), 0.35));
   }
   50% {
-    filter: drop-shadow(0 0 8px rgba(51, 255, 102, 0.65));
+    filter: drop-shadow(0 0 8px rgba(var(--crt-fg-rgb), 0.65));
   }
 }
 

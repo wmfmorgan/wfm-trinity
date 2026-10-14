@@ -1,5 +1,5 @@
 /**
- * UI preferences persisted in localStorage (font scale / zoom).
+ * UI preferences persisted in localStorage (font scale and phosphor theme).
  */
 
 export const UI_SCALE_STEPS = [0.85, 1, 1.15, 1.3, 1.5] as const
@@ -49,4 +49,39 @@ export function stepUiScale(
     Math.max(0, idx + direction),
   )
   return UI_SCALE_STEPS[next]!
+}
+
+export const PHOSPHOR_THEMES = ['green', 'amber'] as const
+export type PhosphorTheme = (typeof PHOSPHOR_THEMES)[number]
+
+export const PHOSPHOR_STORAGE_KEY = 'infocom-workbench.phosphor'
+/** Current CRT look is green phosphor, so that stays the default. */
+export const DEFAULT_PHOSPHOR_THEME: PhosphorTheme = 'green'
+
+export function isPhosphorTheme(value: string | null): value is PhosphorTheme {
+  return value === 'green' || value === 'amber'
+}
+
+export function readPhosphorTheme(): PhosphorTheme {
+  try {
+    const raw = localStorage.getItem(PHOSPHOR_STORAGE_KEY)
+    if (isPhosphorTheme(raw)) return raw
+  } catch {
+    /* private mode / SSR */
+  }
+  return DEFAULT_PHOSPHOR_THEME
+}
+
+export function writePhosphorTheme(theme: PhosphorTheme): void {
+  try {
+    localStorage.setItem(PHOSPHOR_STORAGE_KEY, theme)
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+/** Drive the CRT palette from html[data-phosphor]. */
+export function applyPhosphorTheme(theme: PhosphorTheme): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.phosphor = theme
 }

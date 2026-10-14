@@ -88,6 +88,8 @@ describe('monogramFromTitle', () => {
 
 describe('LibraryScreen', () => {
   beforeEach(async () => {
+    localStorage.clear()
+    delete document.documentElement.dataset.phosphor
     await resetDb()
     resetStores()
   })
@@ -129,6 +131,14 @@ describe('LibraryScreen', () => {
     expect(screen.getByText(/import/i)).toBeInTheDocument()
     expect(screen.getByText(/no games/i)).toBeInTheDocument()
     expect(useLibraryStore.getState().refresh).toHaveBeenCalled()
+  })
+
+  it('offers a phosphor color switch on the library screen', () => {
+    render(<LibraryScreen />)
+
+    const group = screen.getByRole('radiogroup', { name: /phosphor color/i })
+    expect(within(group).getByRole('radio', { name: 'Green' })).toBeChecked()
+    expect(within(group).getByRole('radio', { name: 'Amber' })).toBeInTheDocument()
   })
 
   it('file input accepts story extensions', () => {
