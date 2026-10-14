@@ -1,6 +1,12 @@
 :root {
   /* Whole-UI zoom (A−/A+). Applied as html font-size so rem scales everywhere. */
   --ui-scale: 1;
+
+  /*
+   * Green phosphor is the default CRT palette. Amber overrides these on
+   * html[data-phosphor="amber"]. Channel variables let glows and washes
+   * follow the active phosphor without duplicating every shadow.
+   */
   --crt-bg: #0a0f0a;
   --crt-fg: #33ff66;
   --crt-fg-dim: #1a993d;
@@ -11,14 +17,35 @@
   --crt-danger: #ff4466;
   --crt-font: "IBM Plex Mono", "ui-monospace", "Cascadia Code", monospace;
   --crt-scanline-opacity: 0.08;
-  --crt-glow: 0 0 6px rgba(51, 255, 102, 0.3);
-  --crt-glow-strong: 0 0 8px rgba(51, 255, 102, 0.4);
-  --crt-panel-glow: 0 0 12px rgba(51, 255, 102, 0.08);
+  --crt-fg-rgb: 51, 255, 102;
+  --crt-accent-rgb: 255, 176, 0;
+  --crt-glow: 0 0 6px rgba(var(--crt-fg-rgb), 0.3);
+  --crt-glow-strong: 0 0 8px rgba(var(--crt-fg-rgb), 0.4);
+  --crt-panel-glow: 0 0 12px rgba(var(--crt-fg-rgb), 0.08);
+  --crt-cover-start: #0a160a;
+  --crt-cover-mid: #0d1f10;
+  --crt-cover-end: #0a120a;
   --rail-width: 13.75rem; /* 220px at 16px root */
   --rail-collapsed-width: 2.75rem; /* thin strip when inventory folded */
   --map-min-width: 17.5rem;
   --status-height: 2.5rem;
   --feelies-height: 3.5rem;
+}
+
+:root[data-phosphor='amber'] {
+  --crt-bg: #120e08;
+  --crt-fg: #ffb000;
+  --crt-fg-dim: #c4841d;
+  --crt-fg-bright: #ffe1a3;
+  /* Hotter phosphor for badges and selected marks, still in the amber family. */
+  --crt-amber: #fff1c2;
+  --crt-panel: #1a140c;
+  --crt-border: #6b4512;
+  --crt-fg-rgb: 255, 176, 0;
+  --crt-accent-rgb: 255, 241, 194;
+  --crt-cover-start: #1c140a;
+  --crt-cover-mid: #2a1c0c;
+  --crt-cover-end: #140e08;
 }
 
 @media (prefers-reduced-motion: reduce) {

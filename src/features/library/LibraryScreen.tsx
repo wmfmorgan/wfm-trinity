@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
+import { PhosphorThemeControl } from '../../app/PhosphorThemeControl'
 import { UiScaleControl } from '../../app/UiScaleControl'
 import type { LibraryGame } from '../../domain/types'
 import { getCover } from '../../persistence/libraryRepo'
@@ -206,6 +207,7 @@ export function LibraryScreen() {
           Infocom Workbench
         </h1>
         <div className={styles.headerActions}>
+          <PhosphorThemeControl />
           <UiScaleControl />
           <label className={styles.importLabel}>
             Import

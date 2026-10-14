@@ -24,7 +24,7 @@
 .btn:hover:not(:disabled) {
   color: var(--crt-fg-bright);
   border-color: var(--crt-fg-dim);
-  background: rgba(51, 255, 102, 0.08);
+  background: rgba(var(--crt-fg-rgb), 0.08);
 }
 
 .btn:disabled {

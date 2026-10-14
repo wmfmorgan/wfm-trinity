@@ -27,7 +27,7 @@
 .handle:focus-visible::after {
   opacity: 1;
   background: var(--crt-fg-dim);
-  box-shadow: 0 0 8px rgba(51, 255, 102, 0.25);
+  box-shadow: 0 0 8px rgba(var(--crt-fg-rgb), 0.25);
 }
 
 .handle:focus-visible {

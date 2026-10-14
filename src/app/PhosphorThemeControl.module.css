@@ -1,0 +1,80 @@
+.root {
+  display: inline-flex;
+  align-items: stretch;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--crt-border);
+  border-radius: 4px;
+  min-inline-size: 0;
+  flex-shrink: 0;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border-right: 1px solid var(--crt-border);
+  background: transparent;
+  color: var(--crt-fg-dim);
+  font-family: var(--crt-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  min-height: 1.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.option:last-child {
+  border-right: 0;
+}
+
+.optionChecked {
+  color: var(--crt-fg-bright);
+  background: rgba(var(--crt-fg-rgb), 0.12);
+  text-shadow: var(--crt-glow);
+}
+
+.option:hover {
+  color: var(--crt-fg-bright);
+}
+
+.option:focus-within {
+  outline: 2px solid var(--crt-fg);
+  outline-offset: -2px;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.swatchGreen,
+.swatchAmber {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Swatches stay the phosphor they represent, in either theme. */
+.swatchGreen {
+  background: #33ff66;
+  box-shadow: 0 0 6px rgba(51, 255, 102, 0.85);
+}
+
+.swatchAmber {
+  background: #ffb000;
+  box-shadow: 0 0 6px rgba(255, 176, 0, 0.85);
+}

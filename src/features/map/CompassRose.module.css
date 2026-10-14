@@ -8,7 +8,7 @@
   pointer-events: none;
   user-select: none;
   opacity: 0.92;
-  filter: drop-shadow(0 0 6px rgba(51, 255, 102, 0.25));
+  filter: drop-shadow(0 0 6px rgba(var(--crt-fg-rgb), 0.25));
 }
 
 .svg {
